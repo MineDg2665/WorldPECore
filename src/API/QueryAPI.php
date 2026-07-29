@@ -13,7 +13,7 @@ class QueryAPI{
 		$this->updateQueryData("gametype", ($this->server->gamemode & 0x01) === 0 ? "SMP" : "CMP");
 		$this->updateQueryData("game_id", "MINECRAFTPE");
 		$this->updateQueryData("version", CURRENT_MINECRAFT_VERSION);
-		$this->updateQueryData("server_engine", "NostalgiaCore " . MAJOR_VERSION);
+		$this->updateQueryData("server_engine", "WorldPECore " . MAJOR_VERSION);
 		$this->addToQuery("plugins");
 		$this->addToQuery("map");
 		$this->addToQuery("numplayers");

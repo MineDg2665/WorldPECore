@@ -526,6 +526,10 @@ class PMFLevel extends PMF{
 		return $y & 1 ? $m >> 4 : $m & 0x0F;
 	}
 	
+	public function getSkyLight($x, $y, $z){
+		return 0;
+	}
+	
 	public function setBlockLight($x, $y, $z, $value){
 		if($x < 0 || $x > 255 || $z < 0 || $z > 255 || $y < 0 || $y > 127 || !PocketMinecraftServer::$ENABLE_LIGHT_UPDATES) return false;
 		$X = $x >> 4;
@@ -663,11 +667,9 @@ class PMFLevel extends PMF{
 		}elseif($this->chunks[$index][$Y] === false){
 			$this->fillMiniChunk($X, $Z, $Y);
 		}
-		
 		$aX = $x & 0xf;
 		$aZ = $z & 0xf;
 		$aY = $y & 0xf;
-		
 		$bindex = (int) ($aY + ($aX << 5) + ($aZ << 9));
 		$mindex = (int) (($aY >> 1) + 16 + ($aX << 5) + ($aZ << 9));
 		$old_b = ord($this->chunks[$index][$Y][$bindex]);

@@ -756,8 +756,8 @@ class Entity extends Position
 	
 	public function positionRider($dead){
 		if($this->rider != 0){
-			$e = $this->level->entityList[$this->rider] ?? false;
-			if(!($e instanceof Entity)) return;
+			$e = $this->level->entityList[$this->rider];
+			if($e === false) return;
 			
 			$v3 = $this->getRideHeight();
 			if($dead || $this->dead) $v3 = 0.01;
@@ -1633,6 +1633,11 @@ class Entity extends Position
 			foreach($this->player->armor as $slot => $part){
 				$part->hurtAndBreak($v2, $this->player, helditem: false);
 				if($part->count <= 0) $this->player->setArmor($slot, BlockAPI::getItem(0, 0, 0), send: false);
+			}
+			if($this->player->getProtocol() < ProtocolInfo12::CURRENT_PROTOCOL_12 && $this->player->getProtocol() > ProtocolInfo8::CURRENT_PROTOCOL_8){
+				$pk = new HurtArmorPacket();
+				$pk->health = $v2; //TODO: Verify the real attack health for it
+				$this->player->entityQueueDataPacket($pk);
 			}
 			$this->player->sendArmor();
 		}

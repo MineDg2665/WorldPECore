@@ -117,14 +117,12 @@ class ChatAPI{
 	 */
 	public function broadcast($message){
 		$this->send(false, $message);
-		$this->server->send2Discord($message);
+		$this->server->send2Discord("> **" . $message . "**");
 	}
 
 	/**
 	 * @param mixed $owner Can be either Player object or string username. Boolean false for broadcast.
 	 * @param string $text
-	 * @param $whitelist
-	 * @param $blacklist
 	 */
 	public function send($owner, $text, $whitelist = false, $blacklist = false){
 		$message = [

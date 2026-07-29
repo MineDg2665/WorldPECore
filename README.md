@@ -1,14 +1,14 @@
 ![](https://kotyara.nekoweb.org/images/nostalgiacore.png)
 
-# NostalgiaCore
+# WorldPECore
 
-NostalgiaCore is a fork of Legacy PocketMine-MP 1.3.12, which fixes bugs of Legacy PocketMine-MP, and adds new content
+WorldPECore is a fork of NostalgiaCore (Legacy PocketMine-MP 1.3.12), which fixes bugs and adds new content
 
 Supported MCPE versions: 0.8.0, 0.8.1 (maybe 0.8.2)
 
 (Special thx to GullCraft Network and DartMiner43)
 
-<h2> Why should you use NostalgiaCore to run a Minecraft Pocket Edition 0.8.1 server?</h2>
+<h2> Why should you use WorldPECore to run a Minecraft Pocket Edition 0.8.1 server?</h2>
 
 • PHP 8 Support, PHAR plugins
 
@@ -30,9 +30,9 @@ Supported MCPE versions: 0.8.0, 0.8.1 (maybe 0.8.2)
 
 ...and etc.
 
-<h3> Download Stable NostalgiaCore</h3>
+<h3> Download Stable WorldPECore</h3>
 
-https://github.com/kotyaralih/NostalgiaCore/releases/
+https://github.com/MineDg2665/WorldPECore/releases/
 
 <h3> PHP binaries download</h3>
 

@@ -589,13 +589,16 @@ class Level{
 	 * @param int $z
 	 */
 	public function getRawBrightness(int $x, int $y, int $z){
-		//TODO special way to do it for some blocks
-		
 		$bl = $this->level->getBlockLight($x, $y, $z);
-		$l = 0; ///*$this->level->getBrightness(LIGHTLAYER_SKY, $x, $y, $z)*/ (15 - $this->skyDarken); no skylight is implemnted
+		$sl = $this->level->getSkyLight($x, $y, $z);
+		$l = $sl;
 		if($bl > $l) $l = $bl;
 		if($l < 0) $l = 0;
 		return $l;
+	}
+	
+	public function getSkyLight(int $x, int $y, int $z){
+		return $this->level->getSkyLight($x, $y, $z);
 	}
 	
 	/**

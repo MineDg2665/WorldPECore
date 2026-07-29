@@ -12,7 +12,7 @@ class TaskEatTileGoal extends TaskBase
 
 	public function onEnd(EntityAI $ai)
 	{
-		
+
 	}
 
 	public function onUpdate(EntityAI $ai)
@@ -20,7 +20,7 @@ class TaskEatTileGoal extends TaskBase
 		if($ai->isStarted("TaskPanic")){
 			$this->reset();
 			return false;
-		}		
+		}
 
 		if (--$this->selfCounter == 4)
 		{

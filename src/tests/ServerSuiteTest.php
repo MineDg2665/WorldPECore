@@ -1,4 +1,5 @@
 <?php
+
 /***REM_START***/
 $testErrors = 0;
 function testCase($name, $output, $expected){
@@ -40,7 +41,7 @@ class ServerSuiteTest{
 		testCase("Utils::readDouble", abs(Utils::readDouble("\x41\x02\x03\x04\x05\x06\x07\x08") - 147552.5024529) < 0.0001, true);
 		testCase("Utils::readTriad", Utils::readLong("\x41\x02\x03\x04\x05\x06\x07\x08"), "4684309878217770760");
 
-		//NostalgiaCore server startup
+		//WorldPECore server startup
 		global $server;
 		$server = new ServerAPI();
 		$server->load();
@@ -52,7 +53,6 @@ class ServerSuiteTest{
 		testCase("event fired", true, true);
 		$server = ServerAPI::request();
 		testCase("defaultgamemode", $server->getGamemode(), "survival");
-
 
 		//Everything done!
 		$server->close();

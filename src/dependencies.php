@@ -18,7 +18,7 @@ set_error_handler("error_handler", E_ALL);
 $errors = 0;
 
 if(php_sapi_name() !== "cli"){
-	console("[ERROR] You must run NostalgiaCore using the CLI.", true, true, 0);
+	console("[ERROR] You must run WorldPECore using the CLI.", true, true, 0);
 	++$errors;
 }
 
@@ -80,7 +80,7 @@ if (!flock(LOCK_FILE, LOCK_EX | LOCK_NB)) {
 	flock(LOCK_FILE, LOCK_SH);
 	$pid = stream_get_contents(LOCK_FILE);
 
-	echo "[CRITICAL] Another NostalgiaCore instance (PID $pid) is already using this folder (" . DATA_PATH . ")." . PHP_EOL;
+	echo "[CRITICAL] Another WorldPECore instance (PID $pid) is already using this folder (" . DATA_PATH . ")." . PHP_EOL;
 	echo "[CRITICAL] Please stop the other server first before running a new one." . PHP_EOL;
 	exit(1);
 }
@@ -97,7 +97,6 @@ require_once(FILE_PATH . "/src/world/Position.php");
 require_once(FILE_PATH . "/src/pmf/PMF.php");
 
 require_once(FILE_PATH . "/src/astarnavigator/TileNavigator.php");
-
 
 require_once(FILE_PATH . "/src/entity/ai/tasks/TaskBase.php");
 
@@ -132,8 +131,6 @@ require_once(FILE_PATH . "/src/world/generator/vanilla/biome/Biome.php");
 require_once(FILE_PATH . "/src/world/generator/vanilla/feature/Feature.php");
 
 require_all(FILE_PATH . "src/");
-
-
 
 $inc = get_included_files();
 $inc[] = array_shift($inc);

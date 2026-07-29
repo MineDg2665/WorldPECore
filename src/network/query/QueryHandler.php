@@ -19,7 +19,7 @@ class QueryHandler{
 		The Query protocol is built on top of the existing Minecraft PE UDP network stack.
 		Because the 0xFE packet does not exist in the MCPE protocol,
 		we can identify	Query packets and remove them from the packet queue.
-		
+
 		Then, the Query class handles itself sending the packets in raw form, because
 		packets can conflict with the MCPE ones.
 		*/
@@ -38,7 +38,7 @@ class QueryHandler{
 
 	public function regenerateInfo(){
 		$str = "";
-		$plist = "NostalgiaCore " . MAJOR_VERSION;
+		$plist = "WorldPECore " . MAJOR_VERSION;
 		if($this->server->extraprops->get("query-plugins")){
 			$pl = $this->server->api->plugin->getList();
 			if(count($pl) > 0){

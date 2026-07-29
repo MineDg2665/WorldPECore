@@ -522,6 +522,17 @@ class PlayerAPI{
 		}
 	}
 
+    /**
+     * @return int
+     */
+    public static function decodeProtocol($ip, $port){
+        foreach(ServerAPI::request()->clients as $p) {
+            if($p->ip == $ip && $p->port == $port){
+                return $p->getProtocol();
+            }
+        }
+    }
+
 	public function remove($CID){
 		if(isset($this->server->clients[$CID])){
 			$player = $this->server->clients[$CID];

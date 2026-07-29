@@ -76,7 +76,7 @@ class MobSpawner{
 			$diffX = $x-$player->entity->x;
 			$diffZ = $z-$player->entity->z;
 			$dist = $diffX*$diffX + $diffZ*$diffZ;
-			if($dist < 768){
+			if($dist < 576){
 				continue;
 			}
 			
@@ -136,8 +136,11 @@ class MobSpawner{
 				(StaticBlock::getIsSolid($b1) && (!$grassOnly || $b1 === GRASS) &&
 				(!$highMob || !StaticBlock::getIsSolid($b2) && !StaticBlock::getIsLiquid($b2)))
 			){
-				if($isMonster && ($rb = $this->level->getRawBrightness($x, $y, $z)) > 8){ //dont spawn if too bright
-					continue;
+				if($isMonster){
+					$sl = $this->level->getSkyLight($x, $y, $z);
+					if($sl > mt_rand(0, 31)) continue;
+					$rb = $this->level->getRawBrightness($x, $y, $z);
+					if($rb > mt_rand(0, 7)) continue;
 				}
 				$allowed[] = $y;
 			}
