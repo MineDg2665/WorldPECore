@@ -1,4 +1,4 @@
-![](https://kotyara.nekoweb.org/images/nostalgiacore.png)
+![](https://i.ibb.co/S4MrRNHt/World-PECore.jpg)
 
 # WorldPECore
 
