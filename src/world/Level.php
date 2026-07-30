@@ -600,6 +600,10 @@ class Level{
 	public function getSkyLight(int $x, int $y, int $z){
 		return $this->level->getSkyLight($x, $y, $z);
 	}
+
+	public function getUsedChunks(){
+		return $this->usedChunks;
+	}
 	
 	/**
 	 * Schedules light update. Make sure to check that coordinates are in range.
@@ -823,10 +827,8 @@ class Level{
 		
 		$this->checkSleep();
 		
-		if($server->ticks % 100 === 0){
-			$this->mobSpawner->handle();
-		}
-		
+		$this->mobSpawner->handle();
+
 		
 		foreach($this->players as $player){
 			if(!$player->spawned) continue;

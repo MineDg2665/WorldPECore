@@ -527,7 +527,49 @@ class PMFLevel extends PMF{
 	}
 	
 	public function getSkyLight($x, $y, $z){
-		return 0;
+		if($x < 0 || $x > 255 || $z < 0 || $z > 255 || $y < 0 || $y > 127) return 0;
+
+		$sky = 15;
+		$direct = true;
+		for($yy = $y + 1; $yy <= 127; ++$yy){
+			if($this->getBlockID($x, $yy, $z) !== 0){
+				$direct = false;
+				break;
+			}
+		}
+
+		if(!$direct){
+			$best = 0;
+			for($dx = -1; $dx <= 1; ++$dx){
+				for($dz = -1; $dz <= 1; ++$dz){
+					$cx = $x + $dx; $cz = $z + $dz;
+					if($cx < 0 || $cx > 255 || $cz < 0 || $cz > 255) continue;
+
+					$col = 15;
+					for($yy = $y + 1; $yy <= 127; ++$yy){
+						$block = $this->getBlockID($cx, $yy, $cz);
+						if($block === 0) continue;
+						$lb = StaticBlock::$lightBlock[$block] ?? 0;
+						if($lb >= 255){ $col = -999; break; }
+						$col -= 1 + $lb;
+						if($col <= 0){ $col = -999; break; }
+					}
+
+					$eff = $col - abs($dx) - abs($dz) - 1;
+					if($eff > $best) $best = $eff;
+				}
+			}
+			$sky = $best;
+			if($sky <= 0) return 0;
+		}
+
+		if(isset($this->level)){
+			$timeMod = abs($this->level->getTime()) % 19200;
+			if($timeMod >= 9500 && $timeMod < 17800){
+				$sky = max(0, $sky - 11);
+			}
+		}
+		return $sky;
 	}
 	
 	public function setBlockLight($x, $y, $z, $value){

@@ -239,11 +239,7 @@ class EntityAPI{
 				$cZ = (int)$this->entities[$eid]->z >> 4;
 				$index = "$cX $cZ";
 				unset($level->entityListPositioned[$index][$eid]);
-				if(isset($level->mobSpawner->entityAffectedPlayers[$eid])){
-					$pid = $level->mobSpawner->entityAffectedPlayers[$eid];
-					unset($level->mobSpawner->entityAffectedPlayers[$eid]);
-					unset($level->mobSpawner->playerAffectedEIDS[$pid][$eid]);
-				}
+
 			}
 			if($this->entities[$eid]->isPlayer()){
 				$pk = new RemovePlayerPacket;
