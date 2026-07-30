@@ -42,7 +42,7 @@ https://github.com/MineDg2665/WorldPECore/releases/
 
 Simply start your server using ./start.sh -l
 
-<h3> Our discord server</h3>
+<h3> NostalgiaCore discord server</h3>
 
 https://discord.gg/uSHEWe6NC3
 
