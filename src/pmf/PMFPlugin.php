@@ -36,7 +36,8 @@ class PMFPlugin extends PMF{
 		$this->pluginData["class"] = $this->read(Utils::readShort($this->read(2), false));
 		$this->pluginData["identifier"] = $this->read(Utils::readShort($this->read(2), false)); //Will be used to check for updates
 		if($this->pluginData["fversion"] >= 0x02){
-			$data = explode(";", gzinflate($this->read(Utils::readInt($this->read(4)))));
+			$gz = gzinflate($this->read(Utils::readInt($this->read(4))), 16777216);
+			$data = $gz === false ? [] : explode(";", $gz);
 			$this->pluginData["extra"] = [];
 			foreach($data as $v){
 				$v = trim($v);
@@ -48,13 +49,15 @@ class PMFPlugin extends PMF{
 			}
 
 		}else{
-			$this->pluginData["extra"] = gzinflate($this->read(Utils::readShort($this->read(2), false)));
+			$gz = gzinflate($this->read(Utils::readShort($this->read(2), false)), 16777216);
+			$this->pluginData["extra"] = $gz === false ? "" : $gz;
 		}
 		$this->pluginData["code"] = "";
 		while(!feof($this->fp)){
 			$this->pluginData["code"] .= $this->read(4096);
 		}
-		$this->pluginData["code"] = gzinflate($this->pluginData["code"]);
+		$gz = gzinflate($this->pluginData["code"], 16777216);
+		$this->pluginData["code"] = $gz === false ? "" : $gz;
 	}
 
 	public function getPluginInfo(){

@@ -14,9 +14,12 @@ class NBT{
 	const TAG_LIST = 9;
 	const TAG_COMPOUND = 10;
 
+	const MAX_DEPTH = 32;
+
 	public $tree = [];
 	public $binary = b"";
 	private $offset = 0;
+	private $depth = 0;
 
 	public function write($bin){
 		$this->binary .= $bin;
@@ -25,10 +28,23 @@ class NBT{
 	public function load($str){
 		$this->offset = 0;
 		$this->binary = (string) $str;
-		$this->parseTree($this->tree);
+		$this->tree = [];
+		$this->depth = 0;
+		try{
+			$this->parseTree($this->tree);
+			return true;
+		}catch(NBTParseException $e){
+			$this->tree = [];
+			$this->binary = b"";
+			return false;
+		}
 	}
 
 	private function parseTree(&$node){
+		if($this->depth >= self::MAX_DEPTH){
+			throw new NBTParseException("NBT nesting too deep");
+		}
+		++$this->depth;
 		while(($tag = ord($this->read(1))) !== self::TAG_END and !$this->feof()){
 			$name = $this->readTAG_STRING();
 			switch($tag){
@@ -65,11 +81,11 @@ class NBT{
 					$this->parseTree($value);
 					break;
 				default:
-					echo bin2hex(substr($this->binary, $this->offset - 1)) . PHP_EOL . PHP_EOL;
-					die("Invalid NBT Tag $tag");
+					throw new NBTParseException("Invalid NBT Tag " . $tag);
 			}
 			$node[$name] = $value;
 		}
+		--$this->depth;
 	}
 
 	public function read($n){
@@ -152,8 +168,7 @@ class NBT{
 					$this->parseTree($value);
 					break;
 				default:
-					echo bin2hex(substr($this->binary, $this->offset - 1)) . PHP_EOL . PHP_EOL;
-					die("Invalid NBT Tag $tag");
+					throw new NBTParseException("Invalid NBT Tag " . $tag);
 			}
 			$node[] = $value;
 		}
@@ -190,4 +205,7 @@ class NBT{
 	public function writeTAG_SHORT($v){
 		$this->binary .= Utils::writeLShort($v);
 	}
+}
+
+class NBTParseException extends Exception{
 }

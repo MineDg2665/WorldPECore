@@ -16,8 +16,15 @@ class PocketChunkParser{
 	
 	public function loadFile($file){
 		if(file_exists($file . ".gz")){
-			$this->raw = gzinflate(file_get_contents($file . ".gz"));
-			$r = @gzinflate($this->raw);
+			$raw = @file_get_contents($file . ".gz");
+			if($raw === false){
+				return false;
+			}
+			$this->raw = @gzinflate($raw, 67108864);
+			if($this->raw === false){
+				return false;
+			}
+			$r = @gzinflate($this->raw, 67108864);
 			if($r !== false and $r != ""){
 				$this->raw = $r;
 			}

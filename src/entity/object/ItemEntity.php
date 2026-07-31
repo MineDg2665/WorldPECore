@@ -215,6 +215,9 @@ class ItemEntity extends Entity{
 		if(abs($this->speedY) < self::MIN_POSSIBLE_SPEED) $this->speedY = 0;
 		
 		++$this->age;
-		//TODO despawn after age >= 6000 ?; 
+		if($this->age >= 6000){
+			$this->close();
+			return;
+		}
 	}
 }

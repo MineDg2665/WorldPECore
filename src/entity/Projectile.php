@@ -78,6 +78,10 @@ abstract class Projectile extends Entity{
 		$this->lastSpeedY = $this->speedY;
 		$this->lastSpeedZ = $this->speedZ;
 		$this->needsUpdate = true;
+		if(++$this->age >= 400){
+			$this->close();
+			return;
+		}
 		$this->handleWaterMovement();
 		if($this->fire > 0){
 			if(!$this->isImmuneToFire){

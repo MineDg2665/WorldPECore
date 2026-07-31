@@ -2953,6 +2953,9 @@ class Player{
 								"shootZ" => $shootZ
 							];
 							
+							if(count($this->level->entityList) >= 300){
+								break;
+							}
 							if($slotItem->getID() == EGG){
 								$e = $this->server->api->entity->add($this->entity->level, ENTITY_OBJECT, OBJECT_EGG, $data);
 							}else{
@@ -3621,7 +3624,9 @@ class Player{
 							$t->setText($packet->line1, $packet->line2, $packet->line3, $packet->line4);
 							break;
 						}
-						$nbt->load($packet->namedtag);
+						if($nbt->load($packet->namedtag) === false){
+							break;
+						}
 						$d = array_shift($nbt->tree);
 						if($d["id"] !== TILE_SIGN){
 							$t->spawn($this);

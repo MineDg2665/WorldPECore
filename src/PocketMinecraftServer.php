@@ -65,6 +65,8 @@ class PocketMinecraftServer{
 		$this->tiles = [];
 		$this->entities = [];
 		$this->custom = [];
+		$this->customTimes = [];
+		$this->tickCounter = 0;
 		$this->evCnt = 1;
 		$this->handCnt = 1;
 		$this->eidCnt = 1;
@@ -613,8 +615,13 @@ class PocketMinecraftServer{
 						break;
 					}
 					if(!isset($this->custom["times_" . $CID])){
+						if(count($this->custom) >= 8192){
+							$this->custom = [];
+							$this->customTimes = [];
+						}
 						$this->custom["times_" . $CID] = 0;
 					}
+					$this->customTimes[$CID] = microtime(true);
 					$ln = 15;
 					if($this->description == "" or !str_ends_with($this->description, " ")){
 						$this->description .= " ";
@@ -651,7 +658,22 @@ class PocketMinecraftServer{
 					if($this->invisible === true){
 						break;
 					}
-					
+
+					if(count($this->clients) >= ($this->maxClients + 32)){
+						break;
+					}
+					$sameIP = 0;
+					foreach($this->clients as $session){
+						if($session->ip === $packet->ip){
+							if(++$sameIP >= 8){
+								break;
+							}
+						}
+					}
+					if($sameIP >= 8){
+						break;
+					}
+
 					if($packet->mtuSize > 2048) $packet->mtuSize = 2048;
 					if($packet->mtuSize <= 512) $packet->mtuSize = 512;
 					
@@ -681,6 +703,15 @@ class PocketMinecraftServer{
 			$this->tickMeasure[] = $this->lastTick = $time;
 			unset($this->tickMeasure[key($this->tickMeasure)]);
 			++$this->ticks;
+			
+			if((++$this->tickCounter % 1200) === 0){
+				$now = microtime(true);
+				foreach($this->customTimes as $CID => $t){
+					if(($now - $t) > 60){
+						unset($this->customTimes[$CID], $this->custom["times_" . $CID]);
+					}
+				}
+			}
 			
 			foreach($this->clients as $client){
 				$client->handlePacketQueues();

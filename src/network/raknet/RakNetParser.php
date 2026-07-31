@@ -65,7 +65,8 @@ class RakNetParser{
 				$offset += 2;
 				$count = Utils::readShort(substr($buffer, $offset - 2, 2), false);
 				$packet->packets = [];
-				for($i = 0; $i < $count && isset($buffer[$offset]); ++$i){
+				$limit = 4096;
+				for($i = 0; $i < $count && isset($buffer[$offset]) && count($packet->packets) < $limit; ++$i){
 					++$offset;
 					if(ord(substr($buffer, $offset - 1, 1)) === 0){
 						$offset += 3;
@@ -75,7 +76,7 @@ class RakNetParser{
 						if(($end - $start) > 4096){
 							$end = $start + 4096;
 						}
-						for($c = $start; $c <= $end; ++$c){
+						for($c = $start; $c <= $end && count($packet->packets) < $limit; ++$c){
 							$packet->packets[] = $c;
 						}
 					}else{
