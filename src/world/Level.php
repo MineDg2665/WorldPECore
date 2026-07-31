@@ -834,7 +834,7 @@ class Level{
 			if(!$player->spawned) continue;
 			foreach($post as $eid){
 				$e = $this->entityList[$eid] ?? false;
-				if(!($e instanceof Entity)){
+				if(!($e instanceof Entity) || !$player->hasEntity($e)){
 					continue;
 				}
 				$player->addEntityMovementUpdateToQueue($e);

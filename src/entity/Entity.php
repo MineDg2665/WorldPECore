@@ -778,6 +778,7 @@ class Entity extends Position
 				$this->fallDistance = 0;
 			}else{
 				ConsoleAPI::warn("$this is riding invalid entity({$this->riding})");
+				$this->setRiding(null);
 			}
 		}
 	}

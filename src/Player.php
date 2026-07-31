@@ -394,6 +394,9 @@ class Player{
 			}
 
 			if($pos instanceof Position and $pos->level instanceof Level and $pos->level !== $this->level){
+				if($this->entity->riding != 0){
+					$this->entity->setRiding(null);
+				}
 				if($this->server->api->dhandle("player.teleport.level", ["player" => $this, "origin" => $this->level, "target" => $pos->level]) === false){
 					$this->entity->check = true;
 					return false;
