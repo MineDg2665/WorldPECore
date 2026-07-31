@@ -6,6 +6,7 @@ abstract class Animal extends Creature implements Ageable, Breedable{
 	public $inLove; //do NOT add it into metadata, it doesnt send it to player
 	public $age;
 	public $loveTimeout;
+	public $fromPlayer = false;
 	
 	
 	
@@ -110,13 +111,15 @@ abstract class Animal extends Creature implements Ageable, Breedable{
 	
 	public function spawnChild($mate)
 	{
-		return $this->server->api->entity->add($this->level, $this->class, $this->type, [
+		$c = $this->server->api->entity->add($this->level, $this->class, $this->type, [
 			"x" => $this->x + lcg_value() * mt_rand(-1, 1),
 			"y" => $this->y,
 			"z" => $this->z + lcg_value() * mt_rand(-1, 1),
 			"IsBaby" => true,
 			"Age" => -24000,
 		]);
+		$c->fromPlayer = $this->fromPlayer || ($mate instanceof Animal && $mate->fromPlayer);
+		return $c;
 	}
 	
 	public function getMetadata(){
@@ -142,6 +145,7 @@ abstract class Animal extends Creature implements Ageable, Breedable{
 			if($this->isFood($slot->getID()) && $this->inLove <= 0 && !$this->isBaby() && $this->loveTimeout <= 0){
 				$e->player->consumeSingleItem();
 				$this->inLove = 600;
+				$this->fromPlayer = true;
 				return true;
 			}
 		}

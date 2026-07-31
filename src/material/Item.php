@@ -240,7 +240,7 @@ class Item{
 			$this->meta += $dmg;
 			
 			if($helditem){
-				$player->setSlot($player->slot, $this, send: false);
+				$player->setSlot($player->slot, $this, send: true);
 				if($this->meta > $this->getMaxDurability()){
 					$player->consumeSingleItem();
 				}

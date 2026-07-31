@@ -3479,6 +3479,11 @@ class Player{
 						//ConsoleAPI::info("unexpected setslot, assuming caused by crafting {$packet->slot} {$packet->item}");
 					}
 
+					if($slot->getID() == $citem->getID() && $slot->getMetadata() !== $citem->getMetadata() && $slot->getMaxDurability() !== false){
+						$this->sendInventorySlot($packet->slot);
+						break;
+					}
+
 					if($slot->getID() == $citem->getID() && $slot->getMetadata() == $citem->getMetadata()){
 						if($citem->count > $slot->count){ //item added, result
 							$this->addCraftingResult($packet->slot, $slot->getID(), $slot->getMetadata(), $citem->count - $slot->count);

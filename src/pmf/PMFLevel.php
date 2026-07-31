@@ -538,25 +538,17 @@ class PMFLevel extends PMF{
 		}
 		$key = "$x $z";
 		if(!isset($this->skyLightCache[$index][$key])){
-			$this->skyLightCache[$index][$key] = ["top" => $this->scanSkyTop($x, $z), "atts" => null];
+			$this->skyLightCache[$index][$key] = ["top" => $this->scanSkyTop($x, $z), "map" => null];
 		}
 		$col = &$this->skyLightCache[$index][$key];
 
 		if($y >= $col["top"]){
 			$sky = 15;
 		}else{
-			if($col["atts"] === null){
-				$col["atts"] = $this->buildSkyAtts($x, $z);
+			if($col["map"] === null){
+				$col["map"] = $this->buildSkyMap($x, $z);
 			}
-			$best = 0;
-			foreach($col["atts"] as $dx => $cols){
-				foreach($cols as $dz => $att){
-					$eff = 15 - $att[$y] - abs($dx) - abs($dz) - 1;
-					if($eff > $best) $best = $eff;
-				}
-			}
-			$sky = $best;
-			if($sky < 0) $sky = 0;
+			$sky = ord($col["map"][$y]);
 		}
 
 		if(isset($this->level)){
@@ -577,7 +569,8 @@ class PMFLevel extends PMF{
 		return -1;
 	}
 
-	private function buildSkyAtts($x, $z){
+	private function buildSkyMap($x, $z){
+		$sky = str_repeat("\x00", 128);
 		$atts = [];
 		for($dx = -1; $dx <= 1; ++$dx){
 			for($dz = -1; $dz <= 1; ++$dz){
@@ -595,7 +588,18 @@ class PMFLevel extends PMF{
 				$atts[$dx][$dz] = $att;
 			}
 		}
-		return $atts;
+		for($yy = 0; $yy <= 127; ++$yy){
+			$best = 0;
+			foreach($atts as $dx => $cols){
+				foreach($cols as $dz => $att){
+					$eff = 15 - $att[$yy] - abs($dx) - abs($dz) - 1;
+					if($eff > $best) $best = $eff;
+				}
+			}
+			if($best < 0) $best = 0;
+			$sky[$yy] = chr($best);
+		}
+		return $sky;
 	}
 
 	private function invalidateSkyLight($x, $z){

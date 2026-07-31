@@ -107,16 +107,19 @@ abstract class Living extends Entity implements Pathfindable{
 	}
 
 	public function update($now){
-		if(self::$despawnMobs && ++$this->ticksExisted > self::$despawnTimer){
+		$permanent = $this instanceof Animal && $this->fromPlayer;
+		if(!$permanent && self::$despawnMobs && ++$this->ticksExisted > self::$despawnTimer){
 			$this->close();
 			return;
 		}
 		if($this->closed) return;
 
-		$check = $this->level->mobSpawner->checkDespawn($this);
-		if($check){
-			$this->close();
-			return;
+		if(!$permanent){
+			$check = $this->level->mobSpawner->checkDespawn($this);
+			if($check){
+				$this->close();
+				return;
+			}
 		}
 		parent::update($now);
 	}
