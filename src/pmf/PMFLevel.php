@@ -7,6 +7,7 @@ class PMFLevel extends PMF{
 	public $isLoaded = true;
 	private $levelData = [];
 	public $hasLight = "";
+	public $skyLightCache = [];
 	public $locationTable = [];
 	private $log = 4; //must be 4 or else rip world
 	private $payloadOffset = 0;
@@ -290,7 +291,7 @@ class PMFLevel extends PMF{
 		$index = self::getIndex($X, $Z);
 		$this->chunks[$index] = null;
 		$this->chunkChange[$index] = null;
-		unset($this->chunks[$index], $this->chunkChange[$index]);
+		unset($this->chunks[$index], $this->chunkChange[$index], $this->skyLightCache[$index]);
 		return true;
 	}
 	
@@ -375,11 +376,10 @@ class PMFLevel extends PMF{
 		}
 		$this->chunks[$index] = [];
 		$this->chunkChange[$index] = [-1 => false];
+		$this->skyLightCache[$index] = [];
 		for($Y = 0; $Y < $this->levelData["height"]; ++$Y){
 			$t = 1 << $Y;
 			if(($info[0] & $t) === $t){
-				//TODO do something with skylight
-				// 4096 + 2048 + 2048, Block Data, Meta, Light
 				if(strlen($this->chunks[$index][$Y] = gzread($chunk, 8192)) < 8192){
 					console("[NOTICE] Empty corrupt chunk detected [$X,$Z,:$Y], recovering contents", true, true, 2);
 					$this->fillMiniChunk($X, $Z, $Y);
@@ -423,6 +423,7 @@ class PMFLevel extends PMF{
 		$this->chunkChange[$index][-1] = true;
 		$this->chunkChange[$index][$Y] = 8192;
 		$this->locationTable[$index][0] |= 1 << $Y;
+		$this->clearSkyLightChunk($X, $Z);
 		return true;
 	}
 
@@ -438,6 +439,7 @@ class PMFLevel extends PMF{
 		$this->chunkChange[$index][-1] = true;
 		$this->chunkChange[$index][$Y] = 8192;
 		$this->locationTable[$index][0] |= 1 << $Y;
+		$this->clearSkyLightChunk($X, $Z);
 		return true;
 	}
 	/**
@@ -501,6 +503,7 @@ class PMFLevel extends PMF{
 			$this->chunks[$index][$Y][$bind] = chr($block);
 			if($block > 0) StaticBlock::getBlock($block)::onPlace($this->level, $x, $y, $z);
 			$this->level->updateLight(0, $x, $y, $z, $x, $y, $z);
+			$this->invalidateSkyLight($x, $z);
 		}
 		
 		if(!isset($this->chunkChange[$index][$Y])){
@@ -529,38 +532,31 @@ class PMFLevel extends PMF{
 	public function getSkyLight($x, $y, $z){
 		if($x < 0 || $x > 255 || $z < 0 || $z > 255 || $y < 0 || $y > 127) return 0;
 
-		$sky = 15;
-		$direct = true;
-		for($yy = $y + 1; $yy <= 127; ++$yy){
-			if($this->getBlockID($x, $yy, $z) !== 0){
-				$direct = false;
-				break;
-			}
+		$index = self::getIndex($x >> 4, $z >> 4);
+		if(!isset($this->skyLightCache[$index])){
+			$this->skyLightCache[$index] = [];
 		}
+		$key = "$x $z";
+		if(!isset($this->skyLightCache[$index][$key])){
+			$this->skyLightCache[$index][$key] = ["top" => $this->scanSkyTop($x, $z), "atts" => null];
+		}
+		$col = &$this->skyLightCache[$index][$key];
 
-		if(!$direct){
+		if($y >= $col["top"]){
+			$sky = 15;
+		}else{
+			if($col["atts"] === null){
+				$col["atts"] = $this->buildSkyAtts($x, $z);
+			}
 			$best = 0;
-			for($dx = -1; $dx <= 1; ++$dx){
-				for($dz = -1; $dz <= 1; ++$dz){
-					$cx = $x + $dx; $cz = $z + $dz;
-					if($cx < 0 || $cx > 255 || $cz < 0 || $cz > 255) continue;
-
-					$col = 15;
-					for($yy = $y + 1; $yy <= 127; ++$yy){
-						$block = $this->getBlockID($cx, $yy, $cz);
-						if($block === 0) continue;
-						$lb = StaticBlock::$lightBlock[$block] ?? 0;
-						if($lb >= 255){ $col = -999; break; }
-						$col -= 1 + $lb;
-						if($col <= 0){ $col = -999; break; }
-					}
-
-					$eff = $col - abs($dx) - abs($dz) - 1;
+			foreach($col["atts"] as $dx => $cols){
+				foreach($cols as $dz => $att){
+					$eff = 15 - $att[$y] - abs($dx) - abs($dz) - 1;
 					if($eff > $best) $best = $eff;
 				}
 			}
 			$sky = $best;
-			if($sky <= 0) return 0;
+			if($sky < 0) $sky = 0;
 		}
 
 		if(isset($this->level)){
@@ -570,6 +566,59 @@ class PMFLevel extends PMF{
 			}
 		}
 		return $sky;
+	}
+
+	private function scanSkyTop($x, $z){
+		for($yy = 127; $yy >= 0; --$yy){
+			if($this->getBlockID($x, $yy, $z) !== 0){
+				return $yy;
+			}
+		}
+		return -1;
+	}
+
+	private function buildSkyAtts($x, $z){
+		$atts = [];
+		for($dx = -1; $dx <= 1; ++$dx){
+			for($dz = -1; $dz <= 1; ++$dz){
+				$cx = $x + $dx; $cz = $z + $dz;
+				if($cx < 0 || $cx > 255 || $cz < 0 || $cz > 255) continue;
+				$att = [];
+				$s = 0;
+				for($yy = 127; $yy >= 0; --$yy){
+					$att[$yy] = $s;
+					$block = $this->getBlockID($cx, $yy, $cz);
+					if($block !== 0){
+						$s += 1 + (StaticBlock::$lightBlock[$block] ?? 0);
+					}
+				}
+				$atts[$dx][$dz] = $att;
+			}
+		}
+		return $atts;
+	}
+
+	private function invalidateSkyLight($x, $z){
+		for($dx = -1; $dx <= 1; ++$dx){
+			for($dz = -1; $dz <= 1; ++$dz){
+				$cx = $x + $dx; $cz = $z + $dz;
+				if($cx < 0 || $cx > 255 || $cz < 0 || $cz > 255) continue;
+				$index = self::getIndex($cx >> 4, $cz >> 4);
+				if(isset($this->skyLightCache[$index])){
+					unset($this->skyLightCache[$index]["$cx $cz"]);
+				}
+			}
+		}
+	}
+
+	private function clearSkyLightChunk($X, $Z){
+		for($dx = -1; $dx <= 1; ++$dx){
+			for($dz = -1; $dz <= 1; ++$dz){
+				$cx = $X + $dx; $cz = $Z + $dz;
+				if($cx < 0 || $cx > 15 || $cz < 0 || $cz > 15) continue;
+				unset($this->skyLightCache[self::getIndex($cx, $cz)]);
+			}
+		}
 	}
 	
 	public function setBlockLight($x, $y, $z, $value){
@@ -731,6 +780,9 @@ class PMFLevel extends PMF{
 			
 			if($block > 0) StaticBlock::getBlock($block)::onPlace($this->level, $x, $y, $z);
 			$this->level->updateLight(0, $x, $y, $z, $x, $y, $z);
+			if($old_b !== $block){
+				$this->invalidateSkyLight($x, $z);
+			}
 			return true;
 		}
 		return false;
