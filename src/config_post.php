@@ -139,7 +139,7 @@ set_include_path(get_include_path() . PATH_SEPARATOR . FILE_PATH);
 ini_set("memory_limit", "256M"); //Default
 define("LOG", true);
 define("START_TIME", microtime(true));
-define("MAJOR_VERSION", "3.1");
+define("MAJOR_VERSION", "3.2_1");
 define("CODENAME", "WorldPE");
 define("CURRENT_MINECRAFT_VERSION", "v0.8.1 alpha");
 define("CURRENT_API_VERSION", "12.2");
