@@ -2719,8 +2719,13 @@ class Player{
 					break;
 				}
 				
-				if(($this->entity instanceof Entity) && $packet->messageIndex > $this->lastMovement){
-					$this->lastMovement = $packet->messageIndex;
+				if($this->entity instanceof Entity){
+					if($packet->messageIndex !== false){
+						if($packet->messageIndex < $this->lastMovement && ($this->lastMovement - $packet->messageIndex) < 0xFFFF){
+							break; //out-of-order or replayed movement
+						}
+						$this->lastMovement = $packet->messageIndex;
+					}
 					//prevent all movement this far - vanilla collisions break there
 					//farther distances(like inf) may cause client and server crash
 					if(abs($packet->x) >= 8388608 || abs($packet->y) >= 8388608 || abs($packet->z) >= 8388608){
