@@ -21,7 +21,7 @@ class Level{
 	public $players = [];
 	
 	public $tiles, $blockUpdates, $nextSave, $level, $mobSpawner, $totalMobsAmount = 0;
-	private $time, $startCheck, $startTime, $server, $name, $usedChunks, $changedBlocks, $changedCount, $stopTime;
+	private $time, $startCheck, $startTime, $server, $name, $usedChunks, $changedBlocks, $changedCount, $stopTime, $mobSpawnerTick;
 	
 	public $randInt1, $randInt2;
 	public $queuedBlockUpdates = [];
@@ -727,11 +727,33 @@ class Level{
 		$this->level->forceLightUpdatesIfNeeded();
 		
 		if(!$this->stopTime) ++$this->time;
-		for($cX = 0; $cX < 16; ++$cX){
-			for($cZ = 0; $cZ < 16; ++$cZ){
-				$index = $this->level->getIndex($cX, $cZ);
+		if(count($this->players) > 0){
+			$activeChunks = [];
+			foreach($this->players as $player){
+				if(!$player->spawned || $player->entity === null) continue;
+				$pX = max(0, min(15, (int) $player->entity->x >> 4));
+				$pZ = max(0, min(15, (int) $player->entity->z >> 4));
+				for($dx = -8; $dx <= 8; ++$dx){
+					$cX = max(0, min(15, $pX + $dx));
+					for($dz = -8; $dz <= 8; ++$dz){
+						$cZ = max(0, min(15, $pZ + $dz));
+						$activeChunks[$this->level->getIndex($cX, $cZ)] = [$cX, $cZ];
+					}
+				}
+			}
+			foreach($activeChunks as $index => $coords){
 				if(!isset($this->level->chunks[$index]) || $this->level->chunks[$index] === false) continue;
 				$ch = &$this->level->chunks[$index];
+				$hasData = false;
+				for($i = 0; $i < 8; ++$i){
+					if($ch[$i] !== false){
+						$hasData = true;
+						break;
+					}
+				}
+				if(!$hasData) continue;
+				$cX = $coords[0];
+				$cZ = $coords[1];
 				for($c = 0; $c <= 20; ++$c){
 					$xyz = mt_rand(0, 0xffffffff) >> 2;
 					$x = $xyz & 0xf;
@@ -827,7 +849,9 @@ class Level{
 		
 		$this->checkSleep();
 		
-		$this->mobSpawner->handle();
+		if(++$this->mobSpawnerTick % 10 === 0){
+			$this->mobSpawner->handle();
+		}
 
 		
 		foreach($this->players as $player){
