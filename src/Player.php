@@ -2201,6 +2201,13 @@ class Player{
 			if($this->PROTOCOL <= ProtocolInfo12::CURRENT_PROTOCOL_12){
 				Player::$experimentalHotbar = false;
 			}
+			if(!PocketMinecraftServer::$MULTIPROTOCOL && $this->PROTOCOL != ProtocolInfo::CURRENT_PROTOCOL){
+				$pk = new LoginStatusPacket;
+				$pk->status = $this->PROTOCOL < ProtocolInfo::CURRENT_PROTOCOL ? 1 : 2;
+				$this->directDataPacket($pk);
+				$this->close("Incorrect protocol #" . $packet->protocol1, false);
+				return;
+			}
             if(count($this->server->clients) > $this->server->maxClients and !$this->server->api->ban->isOp($this->iusername)){
                 $this->close("server is full!", false);
                 return;

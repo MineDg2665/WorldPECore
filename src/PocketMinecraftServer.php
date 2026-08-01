@@ -23,6 +23,7 @@ class PocketMinecraftServer{
 	public static $KEEP_CHUNKS_LOADED = true, $PACKET_READING_LIMIT = 100;
 	public static $BLOCK_BREAKING_PROGRESS = 0.8;
 	public static $ENABLE_LIGHT_UPDATES = true;
+	public static $MULTIPROTOCOL = true;
 	function __construct($name, $gamemode = SURVIVAL, $seed = false, $port = 19132, $serverip = "0.0.0.0"){
 		$this->port = (int) $port;
 		$this->doTick = true;
@@ -111,6 +112,7 @@ class PocketMinecraftServer{
 			"allow-dropping-single-items" => Player::$allowDroppingSingleItems,
 			"enable-light-updates" => self::$ENABLE_LIGHT_UPDATES,
 			"min-block-breaking-progress" => self::$BLOCK_BREAKING_PROGRESS,
+			"multiprotocol" => self::$MULTIPROTOCOL,
 		], comments: [
 			"min-block-breaking-progress" => [
 				"Affects how strict block breaking speed check is.",
@@ -143,6 +145,10 @@ class PocketMinecraftServer{
 			],
 			"keep-chunks-loaded" => [
 				"If disabled chunks won't be loaded into memory until the player(or something else) loads them"
+			],
+			"multiprotocol" => [
+				"Allows clients with different protocol versions to join (MCPE 0.3.0-0.8.1).",
+				"When disabled only MCPE 0.8.1 is accepted."
 			]
 		]);
 		self::$BLOCK_BREAKING_PROGRESS = $this->extraprops->get("min-block-breaking-progress");
@@ -160,6 +166,7 @@ class PocketMinecraftServer{
 		PocketMinecraftServer::$SAVE_PLAYER_DATA = $this->extraprops->get("save-player-data");
 		Explosion::$enableExplosions = $this->extraprops->get("enable-explosions");
 		NetherReactorBlock::$enableReactor = $this->extraprops->get("enable-nether-reactor");
+		self::$MULTIPROTOCOL = $this->extraprops->get("multiprotocol");
 		if(self::$TICKING_MODE == self::TICK_F20TPS){
 			ConsoleAPI::warn("Forcing 20 tps. This may result in higher CPU usage!");
 		}
