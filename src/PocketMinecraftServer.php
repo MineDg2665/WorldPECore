@@ -286,7 +286,7 @@ class PocketMinecraftServer{
 			if(($this->api instanceof ServerAPI) === true){
 				if(($this->api->chat instanceof ChatAPI) === true){
 					$this->api->chat->send(false, "Stopping server...");
-					self::$_tmp = new StopMessageThread($this, "# > SERVER STATUS:\n > **_Offline_ 🔴!**"); //broadcast didnt want to send message to discord for some reason
+					self::$_tmp = new StopMessageThread($this, "> # SERVER STATUS:\n > **_Offline_ 🔴!**"); //broadcast didnt want to send message to discord for some reason
 				}
 			}
 			$this->stop = true;

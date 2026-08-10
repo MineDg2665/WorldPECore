@@ -2675,7 +2675,7 @@ class Player{
 						$this->server->schedule(50, [$this, "orderChunks"], []);
 						$this->blocked = false;
 
-                        $this->server->send2Discord("> **_" . $this->username . "_ joined the game!**");
+                        $this->server->send2Discord("> **_" . TextFormat::discordEscape($this->username) . "_ joined the game!**");
 						$this->server->handle("player.spawn", $this);
 						break;
 					case 2://Chunk loaded?
@@ -3421,7 +3421,7 @@ class Player{
 						//}
 						
 						if($this->server->api->handle("player.chat", $data) !== false){
-							$this->server->send2Discord("<" . $this->username . "> " . $message);
+							$this->server->send2Discord("> **_" . TextFormat::discordEscape($this->username) . "_** " . TextFormat::discordEscape($message));
 							if(isset($data["message"])){
 								$this->server->api->chat->send($this, $data["message"]);
 							}else{

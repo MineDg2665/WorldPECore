@@ -141,6 +141,11 @@ class TextFormat{
 		return $newString;
 	}
 
+	public static function discordEscape($string){
+		$string = self::clean($string);
+		return str_replace(["\\", "*", "_", "~", "`", "|", ">", "#", "<"], ["\\\\", "\\*", "\\_", "\\~", "\\`", "\\|", "\\>", "\\#", "\\<"], $string);
+	}
+
 	public static function toANSI($string){
 		if(!is_array($string)){
 			$string = self::tokenize($string);

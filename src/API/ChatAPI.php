@@ -117,7 +117,7 @@ class ChatAPI{
 	 */
 	public function broadcast($message){
 		$this->send(false, $message);
-		$this->server->send2Discord("> **" . $message . "**");
+		$this->server->send2Discord("> **" . TextFormat::discordEscape($message) . "**");
 	}
 
 	/**
