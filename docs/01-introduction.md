@@ -27,8 +27,8 @@
   - [3.1. Путь входящего пакета](#31-путь-входящего-пакета)
   - [3.2. Распространение события](#32-распространение-события)
   - [3.3. Исходящие пакеты и чат](#33-путь-исходящего-пакета-и-жизненный-цикл-сообщения-чата)
-  - [3.4. Handshake RakNet](#34-handshake-raknet-что-происходит-до-playerconnect)
-  - [3.5. Жизненный цикл сессии игрока](#35-жизненный-цикл-сессии-игрока)
+  - [3.4. Жизненный цикл сессии игрока](#34-жизненный-цикл-сессии-игрока)
+  - [3.5. Handshake RakNet](#35-handshake-raknet-что-происходит-до-playerconnect)
   - [3.6. Практикум: установка блока по коду](#36-практикум-проследить-установку-блока-по-коду)
 - [4. Терминология и навигация по коду](#4-основные-концепции-и-терминология)
 - [5. Карта исходников `src/`](#5-карта-исходников-src)
@@ -426,10 +426,10 @@ sequenceDiagram
     SAPI->>PMS: new PocketMinecraftServer(name, gm, seed, port, ip)
     PMS->>PMS: load(): Material::init(), EntityRegistry,<br/>StaticBlock, SQLite in-memory (6 таблиц),<br/>PacketPool::init(), MinecraftInterface (UDP),<br/>AsyncMultipleQueue, extra.properties
     SAPI->>APIs: loadAPI() console→level→block→chat→ban→<br/>entity→tile→player→time→queryAPI→achievement<br/>+ init() каждого
-    SAPI->>PLG: loadAPI("plugin") — ПОСЛЕДНИМ
+    SAPI->>PLG: loadAPI plugin — ПОСЛЕДНИМ
     PLG->>PLG: init(): подписка на server.start,<br/>loadAll(): сканирование plugins/,<br/>конструкторы плагинов
     SAPI->>PMS: init(): шедулеры, сигналы SIGTERM/SIGINT
-    PMS->>PMS: trigger("server.start") → PluginAPI::initAll()<br/>→ init() всех плагинов
+    PMS->>PMS: trigger server.start → initAll<br/>→ init() всех плагинов
     PMS->>PMS: process(): главный цикл до stop=true
 ```
 
@@ -478,14 +478,14 @@ sequenceDiagram
     EV->>EV: callEvent(new DataPacketReceiveEvent(player, packet))
     Note over EV: DENY → пакет отброшен после маршрутизации
     Pl->>BA: playerBlockAction(...)
-    BA->>Leg: dhandle("player.block.touch", payload)
+    BA->>Leg: dhandle player.block.touch payload
     Leg->>Pg: ваш callable($data, $event)
     alt вернули false
         Note over Leg: цепочка остановлена,<br/>place отменяется
     else вернули true/null
         Leg->>BA: продолжение обработки
     end
-    BA->>Leg: dhandle("player.block.place", ...)
+    BA->>Leg: dhandle player.block.place payload
     Leg->>Pg: финальное подтверждение установки
 ```
 
@@ -562,13 +562,13 @@ sequenceDiagram
     participant Ch as ChatAPI
     participant H as server.chat (legacy)
     participant T as trigger → слушатели
-    participant B как Player B (клиенты)
+    participant B as Player B (клиенты)
 
-    U->>C: строка "say Привет"
+    U->>C: строка say Привет
     C->>H: console.command.say → console.command
     H-->>C: права OK, вызов callback ChatAPI
-    C->>Ch: broadcast("[Server] Привет")
-    Ch->>H: handle("server.chat", Container)
+    C->>Ch: broadcast [Server] Привет
+    Ch->>H: handle server.chat Container
     Note over H: плагин может изменить текст Container<br/>или вернуть false = никто не получит
     H->>T: result !== false
     T->>B: каждый Player-слушатель проверяет Container.check()<br/>(whitelist/blacklist) и шлёт MESSAGE_PACKET
@@ -576,7 +576,7 @@ sequenceDiagram
 
 Отсюда практическое правило: **фильтрация чата делается в `server.chat`** (одна точка для всех источников: `/say`, `/me`, `broadcast()`), а не в перехвате `MESSAGE_PACKET`.
 
-### 3.5. Жизненный цикл сессии игрока
+### 3.4. Жизненный цикл сессии игрока
 
 Самый насыщенный событиями сценарий — вход игрока. Знание точной последовательности объясняет, какие данные уже доступны в каждом хендлере:
 
@@ -585,24 +585,24 @@ sequenceDiagram
     autonumber
     participant C as Клиент
     participant PMS as PocketMinecraftServer
-    participant P as Player (сессия)
-    participant EV as События/проверки
-    participant PL as Ваши плагины
+    participant P as Player сессия
+    participant EV as События и проверки
 
     C->>PMS: OPEN_CONNECTION_REQUEST_2
-    PMS->>P: new Player(CID, ip, port, MTU) — сессия создана
-    C->>P: LOGIN_PACKET (username, protocol)
+    PMS->>P: new Player(CID, ip, port, MTU)
+    C->>P: LOGIN_PACKET username + protocol
     P->>P: регэксп ника, длина ≤16, blacklist
-    P->>EV: handle("player.connect", $player)
-    Note over EV: false → kick "Unknown reason"
-    EV-->>P: whitelist → isBanned/isIPBanned
-    P->>P: loggedIn = true; дубль-ник проверка
-    P->>EV: PlayerAPI::add() — загрузка профиля<br/>(getOffline → player.offline.get)
-    P->>EV: handle("player.join", $player)
-    Note over EV: false → kick "join cancelled"
-    P->>P: auth = true; инвентарь из профиля;<br/>уровень, позиция, gamemode
-    P->>C: START_GAME + чанки (orderChunks) + spawn
-    P->>P: spawned = true — игрок в игре
+    P->>EV: handle player.connect ($player)
+    Note over EV: false = kick Unknown reason
+    EV-->>P: whitelist, isBanned, isIPBanned
+    P->>P: loggedIn=true, проверка дубля ника
+    P->>EV: PlayerAPI add() — профиль getOffline
+    Note over EV: хук player.offline.get
+    P->>EV: handle player.join ($player)
+    Note over EV: false = kick join cancelled
+    P->>P: auth=true, инвентарь, уровень,<br/>позиция, gamemode
+    P->>C: START_GAME + чанки orderChunks + spawn
+    P->>P: spawned=true — игрок в игре
 ```
 
 Доступность данных по хендлерам:
@@ -627,7 +627,7 @@ sequenceDiagram
 7. Broadcast «_X_ left the game!» (если был spawned).
 
 
-### 3.4. Handshake RakNet: что происходит до `player.connect`
+### 3.5. Handshake RakNet: что происходит до `player.connect`
 
 | Пакет | Направление | Логика ядра (`packetHandler()`) |
 |---|---|---|

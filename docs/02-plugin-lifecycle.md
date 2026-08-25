@@ -306,14 +306,14 @@ sequenceDiagram
     participant Ev as server.start
 
     Srv->>PAPI: plugin->init()
-    PAPI->>PAPI: event("server.start", initAll) — подписка
+    PAPI->>PAPI: event server.start → initAll — подписка
     PAPI->>FS: сканирование *.php / *.pmf / *.phar
     FS-->>PAPI: файлы
     PAPI->>P: include + new Class($api, false)  [конструктор]
     Note over P: только сохранить $this->api
     PAPI-->>Srv: все плагины зарегистрированы
     Note over Srv: ...ядро продолжает запуск...
-    Srv->>Ev: trigger("server.start")
+    Srv->>Ev: trigger server.start
     Ev->>PAPI: initAll()
     PAPI->>PAPI: проверка зависимостей<br/>(OtherPluginRequirement)
     PAPI->>P: init()

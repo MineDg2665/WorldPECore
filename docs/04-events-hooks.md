@@ -34,7 +34,7 @@ sequenceDiagram
     participant P as Ваш хендлер
     participant T as trigger()
 
-    Core->>H: handle("player.join", $player)
+    Core->>H: handle player.join ($player)
     H->>SQL: SELECT ID WHERE name=... ORDER BY priority DESC
     SQL-->>H: список ID
     loop каждый обработчик
