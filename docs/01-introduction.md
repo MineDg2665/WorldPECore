@@ -406,31 +406,18 @@ ASYNC_CURL_POST payload:
 Понимание последовательности запуска объясняет, *почему* в конструкторе плагина доступно меньше, чем в `init()`.
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant PHP as PHP CLI
-    participant Dep as dependencies.php
-    participant SAPI as ServerAPI
-    participant PMS as PocketMinecraftServer
-    participant APIs as Под-API ×12
-    participant PLG as PluginAPI
-
-    PHP->>Dep: config.php: проверка PHP >= 8.0
-    Dep->>Dep: config_post.php: константы версий, timezone
-    Dep->>Dep: проверки расширений<br/>(sockets/pthreads/curl/sqlite3/yaml/zlib)
-    Dep->>Dep: server.lock (мьютекс от второго экземпляра)
-    Dep->>Dep: DATA_PATH, require_all(src/)
-    Note over Dep: возможно Installer (первый запуск)
-    Dep->>SAPI: (new ServerAPI)->run()
-    SAPI->>SAPI: load(): папки worlds/players/plugins,<br/>сброс BaseEvent-реестров,<br/>server.properties (дефолты)
-    SAPI->>PMS: new PocketMinecraftServer(name, gm, seed, port, ip)
-    PMS->>PMS: load(): Material::init(), EntityRegistry,<br/>StaticBlock, SQLite in-memory (6 таблиц),<br/>PacketPool::init(), MinecraftInterface (UDP),<br/>AsyncMultipleQueue, extra.properties
-    SAPI->>APIs: loadAPI() console→level→block→chat→ban→<br/>entity→tile→player→time→queryAPI→achievement<br/>+ init() каждого
-    SAPI->>PLG: loadAPI plugin — ПОСЛЕДНИМ
-    PLG->>PLG: init(): подписка на server.start,<br/>loadAll(): сканирование plugins/,<br/>конструкторы плагинов
-    SAPI->>PMS: init(): шедулеры, сигналы SIGTERM/SIGINT
-    PMS->>PMS: trigger server.start → initAll<br/>→ init() всех плагинов
-    PMS->>PMS: process(): главный цикл до stop=true
+flowchart TD
+    A["0–1. config_post / config.php<br/>timezone, константы версий,<br/>PHP >= 8.0 иначе exit"] --> B["2. dependencies.php<br/>расширения sockets/pthreads/curl/<br/>sqlite3/yaml/zlib иначе exit<br/>server.lock — защита от 2-го экземпляра<br/>DATA_PATH, require_all src/"]
+    B --> C{"Первый запуск?<br/>нет server.properties"}
+    C -- "да" --> C1["Installer:<br/>интерактивное создание конфига"]
+    C -- "нет" --> D
+    C1 --> D["4. ServerAPI load()<br/>папки worlds/players/plugins<br/>сброс OOP-событий unregisterAll<br/>дефолты server.properties"]
+    D --> E["5. new PocketMinecraftServer + load()<br/>Material/EntityRegistry/StaticBlock init<br/>SQLite :memory: 6 таблиц, PacketPool<br/>MinecraftInterface UDP :port<br/>AsyncMultipleQueue, extra.properties"]
+    E --> F["6. loadAPI ×11 + init() каждого<br/>console → level → block → chat → ban →<br/>entity → tile → player → time → queryAPI → achievement"]
+    F --> G["7. loadAPI plugin — ПОСЛЕДНИМ<br/>PluginAPI init: подписка на server.start<br/>loadAll: сканирование plugins/<br/>конструкторы плагинов"]
+    G --> H["8. PocketMinecraftServer init()<br/>внутренние шедулеры titleTick/checkTicks/<br/>checkMemory/asyncOperationChecker<br/>сигналы SIGTERM/SIGINT/SIGHUP"]
+    H --> I["9. trigger server.start<br/>→ PluginAPI initAll: ваши init()"]
+    I --> J(["10. process() — главный цикл<br/>до stop = true"])
 ```
 
 Ключевые шаги в терминах кода:
@@ -455,38 +442,25 @@ sequenceDiagram
 
 ### 3.1. Путь входящего пакета
 
-Последовательность ниже показывает путь игрового пакета от сетевой карты до плагина (на примере установки блока):
-
-
+Путь игрового пакета от сетевой карты до плагина (на примере установки блока) — слева направо:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Net as UDPSocket / MinecraftInterface
-    participant EV as EventHandler (OOP)
-    participant PMS as PocketMinecraftServer
-    participant Pl as Player (сессия)
-    participant BA as BlockAPI
-    participant Leg as Legacy handle()
-    participant Pg as Ваш плагин
-
-    Net->>EV: сырой buffer
-    EV->>EV: callEvent(new PacketReceiveEvent(...))
-    Note over EV: DENY → пакет отброшен целиком
-    EV->>PMS: Packet (распознан)
-    PMS->>Pl: clients[CID]->handlePacket(packet)
-    EV->>EV: callEvent(new DataPacketReceiveEvent(player, packet))
-    Note over EV: DENY → пакет отброшен после маршрутизации
-    Pl->>BA: playerBlockAction(...)
-    BA->>Leg: dhandle player.block.touch payload
-    Leg->>Pg: ваш callable($data, $event)
-    alt вернули false
-        Note over Leg: цепочка остановлена,<br/>place отменяется
-    else вернули true/null
-        Leg->>BA: продолжение обработки
-    end
-    BA->>Leg: dhandle player.block.place payload
-    Leg->>Pg: финальное подтверждение установки
+flowchart LR
+    NET["UDPSocket /<br/>MinecraftInterface<br/>readPacket()"] --> EV1{"PacketReceiveEvent<br/>(OOP)"}
+    EV1 -- "DENY" --> DROP1(["датаграмма отброшена целиком"])
+    EV1 -- "ok" --> PMS["PocketMinecraftServer<br/>packetHandler()"]
+    PMS --> S{"clients[CID]<br/>существует?"}
+    S -- "нет" --> HS["RakNet handshake:<br/>ping / REQ_1 / REQ_2<br/>хук noauthpacket.pid"]
+    S -- "да" --> PL["Player сессия<br/>handleDataPacket()"]
+    HS --> PL
+    PL --> EV2{"DataPacketReceiveEvent<br/>(OOP)"}
+    EV2 -- "DENY" --> DROP2(["пакет отброшен"])
+    EV2 -- "ok: PLACE_BLOCK" --> BA["BlockAPI<br/>playerBlockAction()"]
+    BA --> L1{"dhandle<br/>player.block.touch"}
+    L1 -- "false" --> STOP(["установка отменена"])
+    L1 -- "null / true" --> L2{"dhandle<br/>player.block.place"}
+    L2 --> PG["ваш callable($data, $event)<br/>финальное подтверждение"]
+    PG --> OK(["place → дроп → обновление соседей<br/>UPDATE_BLOCK_PACKET клиентам"])
 ```
 
 Два уровня перехвата дают разные степени контроля:
@@ -556,22 +530,15 @@ flowchart LR
 Полный цикл одного сообщения чата — пример сквозного прохождения обеих событийных систем:
 
 ```mermaid
-sequenceDiagram
-    participant U as Player A (/say)
-    participant C as ConsoleAPI.run()
-    participant Ch as ChatAPI
-    participant H as server.chat (legacy)
-    participant T as trigger → слушатели
-    participant B as Player B (клиенты)
-
-    U->>C: строка say Привет
-    C->>H: console.command.say → console.command
-    H-->>C: права OK, вызов callback ChatAPI
-    C->>Ch: broadcast [Server] Привет
-    Ch->>H: handle server.chat Container
-    Note over H: плагин может изменить текст Container<br/>или вернуть false = никто не получит
-    H->>T: result !== false
-    T->>B: каждый Player-слушатель проверяет Container.check()<br/>(whitelist/blacklist) и шлёт MESSAGE_PACKET
+flowchart LR
+    U["Player A<br/>/say Привет"] --> CMD["ConsoleAPI run()<br/>раскрытие селекторов<br/>@player @world @all"]
+    CMD --> PERM{"console.command.say<br/>+ console.command"}
+    PERM -- "false" --> DENY(["You don't have permissions"])
+    PERM -- "ok" --> CH["ChatAPI broadcast()<br/>[Server] Привет"]
+    CH --> HOOK{"server.chat<br/>Container (mutable)"}
+    HOOK -- "false" --> NONE(["никто не получит"])
+    HOOK -- "ok" --> TRIG["trigger: слушатели event()"]
+    TRIG --> B["каждый Player-слушатель:<br/>Container.check()<br/>→ MESSAGE_PACKET клиенту"]
 ```
 
 Отсюда практическое правило: **фильтрация чата делается в `server.chat`** (одна точка для всех источников: `/say`, `/me`, `broadcast()`), а не в перехвате `MESSAGE_PACKET`.
@@ -581,28 +548,20 @@ sequenceDiagram
 Самый насыщенный событиями сценарий — вход игрока. Знание точной последовательности объясняет, какие данные уже доступны в каждом хендлере:
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant C as Клиент
-    participant PMS as PocketMinecraftServer
-    participant P as Player сессия
-    participant EV as События и проверки
-
-    C->>PMS: OPEN_CONNECTION_REQUEST_2
-    PMS->>P: new Player(CID, ip, port, MTU)
-    C->>P: LOGIN_PACKET username + protocol
-    P->>P: регэксп ника, длина ≤16, blacklist
-    P->>EV: handle player.connect ($player)
-    Note over EV: false = kick Unknown reason
-    EV-->>P: whitelist, isBanned, isIPBanned
-    P->>P: loggedIn=true, проверка дубля ника
-    P->>EV: PlayerAPI add() — профиль getOffline
-    Note over EV: хук player.offline.get
-    P->>EV: handle player.join ($player)
-    Note over EV: false = kick join cancelled
-    P->>P: auth=true, инвентарь, уровень,<br/>позиция, gamemode
-    P->>C: START_GAME + чанки orderChunks + spawn
-    P->>P: spawned=true — игрок в игре
+flowchart TD
+    A["OPEN_CONNECTION_REQUEST_2<br/>new Player(CID, ip, port, MTU)"] --> B["LOGIN_PACKET:<br/>username, protocol"]
+    B --> C{"ник валиден?<br/>[a-zA-Z0-9_], ≤16, не blacklist"}
+    C -- "нет" --> K1(["kick: Bad username"])
+    C -- "да" --> D{"handle<br/>player.connect"}
+    D -- "false" --> K2(["kick: Unknown reason"])
+    D -- "ok" --> E{"whitelist?<br/>isBanned / isIPBanned?"}
+    E -- "fail" --> K3(["kick: white-list / banned"])
+    E -- "ok" --> F["loggedIn=true<br/>проверка дубля ника"]
+    F --> G["PlayerAPI add():<br/>getOffline профиль + хук<br/>player.offline.get"]
+    G --> H{"handle<br/>player.join"}
+    H -- "false" --> K4(["kick: join cancelled"])
+    H -- "ok" --> I["auth=true:<br/>инвентарь, hotbar, уровень,<br/>позиция, gamemode из профиля"]
+    I --> J(["START_GAME + orderChunks + спавн<br/>spawned=true — игрок в игре"])
 ```
 
 Доступность данных по хендлерам:

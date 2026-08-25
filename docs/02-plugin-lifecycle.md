@@ -297,30 +297,20 @@ echo "Built: $out\n";
 ### 3.1. Диаграмма жизненного цикла
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    participant Srv as ServerAPI.load()
-    participant PAPI as PluginAPI
-    participant FS as plugins/
-    participant P as Ваш плагин
-    participant Ev as server.start
-
-    Srv->>PAPI: plugin->init()
-    PAPI->>PAPI: event server.start → initAll — подписка
-    PAPI->>FS: сканирование *.php / *.pmf / *.phar
-    FS-->>PAPI: файлы
-    PAPI->>P: include + new Class($api, false)  [конструктор]
-    Note over P: только сохранить $this->api
-    PAPI-->>Srv: все плагины зарегистрированы
-    Note over Srv: ...ядро продолжает запуск...
-    Srv->>Ev: trigger server.start
-    Ev->>PAPI: initAll()
-    PAPI->>PAPI: проверка зависимостей<br/>(OtherPluginRequirement)
-    PAPI->>P: init()
-    Note over P: register(), addHandler(), schedule(),<br/>configPath(), работа с миром
-    Note over P: ...работа сервера...
-    Srv->>PAPI: shutdown → PluginAPI.__destruct
-    PAPI->>P: __destruct() если объявлен
+flowchart TD
+    A["1. PluginAPI init()<br/>event server.start → initAll — подписка"] --> B["2. loadAll():<br/>сканирование plugins/<br/>.php .pmf .phar"]
+    B --> C["3. load(): парсинг метаданных<br/>name/version/author/class/apiversion"]
+    C --> D["4. include + new Class(api, false)<br/>конструктор: только this->api = api"]
+    D --> E{"instanceof Plugin?"}
+    E -- "нет" --> X(["объект уничтожен,<br/>ERROR в лог"])
+    E -- "да" --> F["реестр: plugins[id] = [object, info]"]
+    F --> G["...ядро продолжает запуск:<br/>миры, шедулеры ядра..."]
+    G --> H["5–6. trigger server.start → initAll()<br/>проверка зависимостей<br/>(OtherPluginRequirement)"]
+    H -- "зависимость не найдена" --> Y(["ERROR + ServerAPI close()<br/>сервер не стартует"])
+    H -- "ok" --> I["init() плагина:<br/>register / addHandler / schedule / configPath"]
+    I --> J(["7. работа сервера:<br/>события, команды, задачи"])
+    J --> K["8. shutdown:<br/>PluginAPI __destruct"]
+    K --> L(["__destruct() вашего плагина"])
 ```
 
 Этапы в терминах кода:

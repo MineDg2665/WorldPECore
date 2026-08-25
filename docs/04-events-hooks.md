@@ -27,27 +27,18 @@
 ## 1. Legacy-система: механика
 
 ```mermaid
-sequenceDiagram
-    participant Core as Код ядра
-    participant H as handle()/dhandle()
-    participant SQL as SQLite handlers
-    participant P as Ваш хендлер
-    participant T as trigger()
-
-    Core->>H: handle player.join ($player)
-    H->>SQL: SELECT ID WHERE name=... ORDER BY priority DESC
-    SQL-->>H: список ID
-    loop каждый обработчик
-        H->>P: callable($data, $event)
-        P-->>H: return
-        alt return === false
-            Note over H: цепочка остановлена<br/>trigger() не вызывается
-        else return === true
-            Note over H: цепочка остановлена,<br/>но trigger() выполняется
-        end
-    end
-    H->>T: trigger(event) — если результат !== false
-    T->>T: вызов всех слушателей event()
+flowchart TD
+    A["ядро: handle(event, data)<br/>или dhandle(event, data)"] --> B["SQLite handlers:<br/>SELECT ID WHERE name = event<br/>ORDER BY priority DESC"]
+    B --> C["вызов handler(data, eventName)"]
+    C --> D{"return хендлера?"}
+    D -- "false" --> E(["цепочка ПРЕКРАЩЕНА<br/>trigger() НЕ вызывается<br/>действие отменено"])
+    D -- "true" --> F(["цепочка прекращена,<br/>но trigger() выполняется"])
+    D -- "null / другое" --> G{"есть ещё<br/>хендлеры?"}
+    G -- "да" --> C
+    G -- "нет" --> H["trigger(event):<br/>все слушатели event()"]
+    F --> H
+    H --> I([возврат результата ядру])
+    E --> I
 ```
 
 Ключевые правила:
