@@ -135,7 +135,7 @@ apiversion=12.1,12.2
    `[ERROR] Plugin "<name>" doesn't use the Plugin Interface`.
 2. Конструктор обязан принимать `(ServerAPI $api, $server = false)` — ядро вызывает его именно так: `new $className($this->server->api, false)`.
 3. Имя класса должно быть уникальным в рамках процесса: если класс уже объявлен, загрузка падает с `[ERROR] Failed loading plugin: class exists`.
-4. Пространства имён поддерживаются только в PHAR-плагинах (см. §2.3).
+4. Пространства имён: PHAR-плагин получает главный класс автоматически из пути `mainFile` (`PharUtils::getNameSpaceClass`, `src/plugin/phar/PharUtils.php`: `/` → `\`, без `.php`). У одиночного `.php` такого механизма нет — при необходимости впишите полное имя с `\` прямо в `class=`; автозагрузчика в ядре нет.
 
 ### 1.4. Сообщения об ошибках загрузки
 

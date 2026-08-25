@@ -129,7 +129,7 @@ apiversion=12.1,12.2
    `[ERROR] Plugin "<name>" doesn't use the Plugin Interface`.
 2. The constructor must accept `(ServerAPI $api, $server = false)` — the kernel calls exactly `new $className($this->server->api, false)`.
 3. The class name must be unique within the process: if the class already exists, loading fails with `[ERROR] Failed loading plugin: class exists`.
-4. Namespaces are supported only in PHAR plugins (§2.3).
+4. Namespaces: a PHAR plugin gets its main class derived automatically from the `mainFile` path (`PharUtils::getNameSpaceClass`, `src/plugin/phar/PharUtils.php`: `/` → `\`, `.php` stripped). A single `.php` has no such mechanism — write the full `\`-qualified name into `class=` yourself; the kernel has no autoloader.
 
 ### 1.4. Load error messages
 
