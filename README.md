@@ -2,6 +2,8 @@
 
 # WorldPECore
 
+[![Documentation](https://img.shields.io/badge/📚-Documentation-blue?style=for-the-badge)](docs/README.md)
+
 WorldPECore is a fork of NostalgiaCore (Legacy PocketMine-MP 1.3.12), which fixes bugs and adds new content
 
 Supported MCPI & MCPE versions: 0.3.0 ～ 0.8.1 (maybe 0.8.2)
