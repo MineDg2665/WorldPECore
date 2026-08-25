@@ -655,18 +655,28 @@ public function __destruct(){
 
 ### 5.4. Паттерн «GUI на сундуке» (кастомное меню)
 
-Классическая задача MCPE 0.8.x — интерфейсы без клиентских GUI: используется реальный сундук-тайл как сетка кнопок.
+> ⚠️ **Важно (поведение клиента):** tile-entity у клиента создаётся только если **ID блока в этой точке совпадает с типом тайла** (`"Chest"` ↔ блок `CHEST`, `"Furnace"` ↔ `FURNACE`). Создали тайл без блока — клиент ничего не материализует; блок без тайла — окно пустое. Кроме того, это хак поверх глобального TileAPI, и разработчики ядра не рекомендуют так делать: используйте осознанно.
 
 ```php
 public function openMenu(Player $p){
     $pos = $p->entity->round();
-    // сундук над головой игрока — вне досягаемости кликов по миру
-    $tile = $this->api->tile->add($p->level, "Chest", $pos->x, $pos->y + 3, $pos->z);
+    $x = $pos->x; $y = $pos->y + 3; $z = $pos->z;
+
+    // 1) Запомнить оригинальный блок и поставить РЕАЛЬНЫЙ сундук:
+    //    без совпадения id блока и типа тайла клиент не создаст tile-entity
+    $old = $p->level->getBlock(new Vector3($x, $y, $z));
+    $this->old[$p->iusername] = ["lv" => $p->level, "x" => $x, "y" => $y, "z" => $z,
+                                 "id" => $old->getID(), "meta" => $old->getMetadata()];
+    $p->level->setBlock(new Vector3($x, $y, $z), Block::get(Block::CHEST), false, true, true);
+
+    // 2) Серверный инвентарь тайла строго на тех же координатах
+    $tile = $this->api->tile->add($p->level, "Chest", $x, $y, $z);
     $this->menus[$p->iusername] = $tile;
 
+    // 3) Наполнение: setSlot принимает Item — для блоков getItem
     $items = [
         11 => BlockAPI::getItem(Item::DIAMOND_SWORD),  // «PvP»
-        13 => BlockAPI::getBlock(Block::GRASS)->getBlock(), // «Выживание»
+        13 => BlockAPI::getItem(Block::GRASS),         // «Выживание»
         15 => BlockAPI::getItem(Item::COMPASS),        // «Спавн»
     ];
     foreach($items as $slot => $item){
@@ -688,11 +698,75 @@ public function onSlot($data){
 }
 ```
 
-Обязательные гигиенические меры паттерна:
+Обязательная гигиена паттерна:
 
-- храните соответствие игрок → тайл и удаляйте его при `player.quit` и при закрытии окна (`CONTAINER_CLOSE_PACKET` через `DataPacketReceiveEvent` — см. Часть 4 §4);
-- после закрытия окна верните блок/уберите тайл (`$tile->close()`), иначе в мире останется «невидимый сундук»;
-- возврат `false` из хендлера `tile.container.slot` не убирает визуально предмет — синхронизируйте слот вручную `$player->sendInventory()` или повторным `setSlot`.
+- закрывать по двум событиям: `CONTAINER_CLOSE_PACKET` через `DataPacketReceiveEvent` (Часть 4 §4) **и** `player.quit`;
+- при закрытии — `$tile->close()` и **восстановление исходного блока**, иначе в мире останется «невидимый сундук»:
+
+```php
+public function closeMenu(Player $p){
+    $u = $p->iusername;
+    $tile = $this->menus[$u] ?? null;
+    if(!$tile instanceof Tile) return;
+    $t = $this->old[$u];
+    $tile->close();
+    $t["lv"]->setBlock(new Vector3($t["x"], $t["y"], $t["z"]),
+        Block::get($t["id"], $t["meta"]), false, true, true);
+    unset($this->menus[$u], $this->old[$u]);
+}
+```
+
+- возврат `false` из хендлера `tile.container.slot` не убирает предмет визуально — ресинхронизируйте слот (`$player->sendInventory()` или повторный `setSlot`);
+- альтернатива без TileAPI: заранее расставленные реальные сундуки + перехват кликов — надёжнее, ничего не нужно спавнить и убирать.
+
+#### 5.4.1. Вариант «только для игрока»: пакеты без изменения мира
+
+Так делают виртуальные инвентари (рюкзаки): мир не трогаем вообще — фейковый блок и тайл отправляем пакетами **одному** игроку.
+
+```php
+public function openVirtualChest(Player $p, int $x, int $y, int $z){
+    // 1) Фейковый блок ТОЛЬКО этому игроку — строго через блоковый канал:
+    //    UPDATE_BLOCK и пакеты тайлов живут в BLOCKUPDATE_ORDER_CHANNEL,
+    //    поэтому dataPacket() здесь ломает порядок блок/чанк/тайл
+    $pk = new UpdateBlockPacket();
+    $pk->x = $x; $pk->y = $y; $pk->z = $z;
+    $pk->block = Block::CHEST; $pk->meta = 0;
+    $p->blockQueueDataPacket($pk);
+
+    // 2) Тайл ВНЕ реестра TileAPI (иначе add() раздаст его всем через spawnToAll):
+    $t = new Tile($p->level, 0, TILE_CHEST, $x, $y, $z, ["Items" => []]);
+    $this->vTiles[$p->iusername] = $t;
+    $t->spawn($p);                                   // внутри — тот же blockQueue
+    $t->setSlot(11, BlockAPI::getItem(Item::DIAMOND_SWORD));
+    $t->openInventory($p);
+}
+
+public function closeVirtualChest(Player $p){
+    $u = $p->iusername;
+    $t = $this->vTiles[$u] ?? null;
+    if(!$t instanceof Tile) return;
+
+    // вернуть оригинальный блок тем же каналом:
+    $o = $this->vOriginal[$u];
+    $pk = new UpdateBlockPacket();
+    $pk->x = $o["x"]; $pk->y = $o["y"]; $pk->z = $o["z"];
+    $pk->block = $o["id"]; $pk->meta = $o["meta"];
+    $p->blockQueueDataPacket($pk);
+
+    $t->close();                                     // remove-тайл тому же игроку
+    unset($this->vTiles[$u], $this->vOriginal[$u]);
+}
+```
+
+Грабли (подтверждены практикой):
+
+| Проблема | Митигация |
+|---|---|
+| Любая перезапись координаты (реальный `setBlock`, обновление соседей, респавн чанка) затирает фейковый блок | пока меню открыто — переотправляйте `UpdateBlockPacket` по расписанию (`schedule` каждые 20–40 тиков); закрывайте меню на `player.teleport.level` и respawn |
+| Отправка блочных пакетов через `dataPacket()` | только `blockQueueDataPacket()` — см. `src/Player.php`, docblock: *«Used for sending tileentity data, chunk data, updateblock packets»* |
+| Позиция y=0 | запрещена: стоящий на y=0 игрок проваливается сквозь мир; держите y=1…126 |
+| Чанк не загружен у игрока | клиент молча игнорирует блок/тайл; открывайте меню только рядом с собой |
+| Тайл вне реестра TileAPI | ядро его не сохраняет и не чистит: `close()` + восстановление блока полностью на вас (включая обработку `player.quit`) |
 
 ### 5.5. Паттерн «Арена в отдельном мире»
 

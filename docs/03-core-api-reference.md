@@ -735,6 +735,8 @@ $player->teleport(new Vector3($safe->x, $safe->y, $safe->z));
 - `send(RakNetPacket $packet)` — сырой RakNet (без игровых событий).
 - `getProtocol(): int` — протокол клиента (мультипротокол).
 
+> ⚠️ **Каналы отправки:** блочные пакеты (`UPDATE_BLOCK_PACKET`) и пакеты тайлов отправляйте через `$player->blockQueueDataPacket($pk)` — это отдельный упорядоченный канал (`BLOCKUPDATE_ORDER_CHANNEL`, docblock: *«tileentity data, chunk data, updateblock packets»*). Обычный `dataPacket()` идёт в другом канале и ломает порядок блок/чанк/тайл относительно друг друга.
+
 #### Видимость и прочее
 - `setInvisibleFor(Player $observer, bool $invisible, bool $send = true)` / `isInvisibleFor(Player): bool` / `makeInvisibleForAllPlayers()` — управление видимостью (хук `player.invisible`).
 - `checkSpawnPosition()` — проверка точки возрождения (хук `player.checkspawnpos`).

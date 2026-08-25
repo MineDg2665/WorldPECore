@@ -733,6 +733,8 @@ OP status is **not** stored on the object — use `BanAPI::isOp($player->iuserna
 - `send(RakNetPacket $packet)` — raw RakNet (no gameplay events).
 - `getProtocol(): int` — client protocol (multiprotocol).
 
+> ⚠️ **Send channels:** block packets (`UPDATE_BLOCK_PACKET`) and tile packets must go through `$player->blockQueueDataPacket($pk)` — a separate ordered channel (`BLOCKUPDATE_ORDER_CHANNEL`, docblock: *“tileentity data, chunk data, updateblock packets”*). Plain `dataPacket()` uses a different channel and breaks block/chunk/tile ordering relative to each other.
+
 #### Visibility & misc
 - `setInvisibleFor(Player $observer, bool $invisible, bool $send = true)` / `isInvisibleFor(Player): bool` / `makeInvisibleForAllPlayers()` — visibility control (`player.invisible` hook).
 - `checkSpawnPosition()` — spawn point validation (`player.checkspawnpos` hook).

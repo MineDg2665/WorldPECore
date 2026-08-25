@@ -641,18 +641,28 @@ Key rules:
 
 ### 5.4. “Chest GUI” pattern (custom menu)
 
-Classic MCPE 0.8.x trick — interfaces without client GUIs: a real chest tile as a button grid.
+> ⚠️ **Important (client behavior):** the client materializes a tile entity only when the **block ID at that spot matches the tile type** (`"Chest"` ↔ block `CHEST`, `"Furnace"` ↔ `FURNACE`). A tile without its block — nothing appears; a block without a tile — an empty window. Also, this is a hack over the global TileAPI, and the kernel maintainers advise against building menus this way: use it knowingly.
 
 ```php
 public function openMenu(Player $p){
     $pos = $p->entity->round();
-    // chest above player's head — out of world-click reach
-    $tile = $this->api->tile->add($p->level, "Chest", $pos->x, $pos->y + 3, $pos->z);
-    $menus[$p->iusername] = $tile;
+    $x = $pos->x; $y = $pos->y + 3; $z = $pos->z;
 
+    // 1) Remember the original block and place a REAL chest:
+    //    without block-id/tile-type match the client creates no tile entity
+    $old = $p->level->getBlock(new Vector3($x, $y, $z));
+    $this->old[$p->iusername] = ["lv" => $p->level, "x" => $x, "y" => $y, "z" => $z,
+                                 "id" => $old->getID(), "meta" => $old->getMetadata()];
+    $p->level->setBlock(new Vector3($x, $y, $z), Block::get(Block::CHEST), false, true, true);
+
+    // 2) Server-side tile inventory at exactly the same coordinates
+    $tile = $this->api->tile->add($p->level, "Chest", $x, $y, $z);
+    $this->menus[$p->iusername] = $tile;
+
+    // 3) Fill: setSlot expects Item — use getItem for blocks
     $items = [
         11 => BlockAPI::getItem(Item::DIAMOND_SWORD),  // “PvP”
-        13 => Block::get(Block::GRASS),                // “Survival”
+        13 => BlockAPI::getItem(Block::GRASS),         // “Survival”
         15 => BlockAPI::getItem(Item::COMPASS),        // “Spawn”
     ];
     foreach($items as $slot => $item){
@@ -676,9 +686,73 @@ public function onSlot($data){
 
 Mandatory hygiene for this pattern:
 
-- keep the player→tile map and remove entries on `player.quit` and on window close (`CONTAINER_CLOSE_PACKET` via `DataPacketReceiveEvent` — Part 4 §4);
-- after closing, revert/remove the tile (`$tile->close()`) or an invisible chest stays in the world;
-- returning `false` from `tile.container.slot` does not visually remove the item — resync manually with `$player->sendInventory()` or another `setSlot`.
+- close on two events: `CONTAINER_CLOSE_PACKET` via `DataPacketReceiveEvent` (Part 4 §4) **and** `player.quit`;
+- on close — `$tile->close()` and **restore the original block**, otherwise an invisible chest stays in the world:
+
+```php
+public function closeMenu(Player $p){
+    $u = $p->iusername;
+    $tile = $this->menus[$u] ?? null;
+    if(!$tile instanceof Tile) return;
+    $t = $this->old[$u];
+    $tile->close();
+    $t["lv"]->setBlock(new Vector3($t["x"], $t["y"], $t["z"]),
+        Block::get($t["id"], $t["meta"]), false, true, true);
+    unset($this->menus[$u], $this->old[$u]);
+}
+```
+
+- returning `false` from `tile.container.slot` does not visually remove the item — resync the slot (`$player->sendInventory()` or another `setSlot`);
+- alternative without TileAPI: pre-placed real chests + click interception — more reliable, nothing to spawn or remove.
+
+#### 5.4.1. Per-player variant: packets, world untouched
+
+This is how virtual inventories (backpacks) are done: never touch the world — send the fake block and the tile as packets to **one** player.
+
+```php
+public function openVirtualChest(Player $p, int $x, int $y, int $z){
+    // 1) Fake block for THIS player only — strictly via the block channel:
+    //    UPDATE_BLOCK and tile packets live in BLOCKUPDATE_ORDER_CHANNEL,
+    //    so dataPacket() here breaks block/chunk/tile ordering
+    $pk = new UpdateBlockPacket();
+    $pk->x = $x; $pk->y = $y; $pk->z = $z;
+    $pk->block = Block::CHEST; $pk->meta = 0;
+    $p->blockQueueDataPacket($pk);
+
+    // 2) Tile OUTSIDE the TileAPI registry (otherwise add() spawns it to everyone):
+    $t = new Tile($p->level, 0, TILE_CHEST, $x, $y, $z, ["Items" => []]);
+    $this->vTiles[$p->iusername] = $t;
+    $t->spawn($p);                                   // uses the same block queue inside
+    $t->setSlot(11, BlockAPI::getItem(Item::DIAMOND_SWORD));
+    $t->openInventory($p);
+}
+
+public function closeVirtualChest(Player $p){
+    $u = $p->iusername;
+    $t = $this->vTiles[$u] ?? null;
+    if(!$t instanceof Tile) return;
+
+    // restore the original block over the same channel:
+    $o = $this->vOriginal[$u];
+    $pk = new UpdateBlockPacket();
+    $pk->x = $o["x"]; $pk->y = $o["y"]; $pk->z = $o["z"];
+    $pk->block = $o["id"]; $pk->meta = $o["meta"];
+    $p->blockQueueDataPacket($pk);
+
+    $t->close();                                     // remove-tile to the same player
+    unset($this->vTiles[$u], $this->vOriginal[$u]);
+}
+```
+
+Pitfalls (battle-tested):
+
+| Problem | Mitigation |
+|---|---|
+| Any overwrite of the coordinate (real `setBlock`, neighbor updates, chunk respawn) wipes the fake block | while the menu is open re-send `UpdateBlockPacket` on a schedule (`schedule` every 20–40 ticks); close the menu on `player.teleport.level` and respawn |
+| Sending block packets via `dataPacket()` | use `blockQueueDataPacket()` only — see `src/Player.php` docblock: *“Used for sending tileentity data, chunk data, updateblock packets”* |
+| Position y=0 | forbidden: a player standing at y=0 falls through the world; keep y=1…126 |
+| Chunk not loaded for the player | client silently ignores block/tile; open menus near yourself only |
+| Tile outside the TileAPI registry | kernel neither saves nor cleans it: `close()` + block restore are fully yours (including `player.quit`) |
 
 ### 5.5. “Arena in a separate world” pattern
 
