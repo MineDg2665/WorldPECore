@@ -873,7 +873,7 @@ flowchart TD
     A{"What am I intercepting?"} -->|"raw client/server packet"| OOP1["DataPacket*Event<br/>setCancelled()"]
     A -->|"datagram before RakNet parse"| OOP2["Packet*Event"]
     A -->|"gameplay action (blocks, join, damage…)"| L1["addHandler(name, cb, prio)"]
-    A -->|"server start/stop"| L2['event("server.start/close")']
+    A -->|"server start/stop"| L2["event server.start / server.close"]
     A -->|"own internal event"| CUST["own name + handle()/trigger()<br/>or own BaseEvent class"]
     L1 --> D{"Need to cancel?"}
     D -- "yes" --> P1["high priority + return false"]

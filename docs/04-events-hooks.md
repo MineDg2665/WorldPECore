@@ -944,7 +944,7 @@ flowchart TD
     A{"Что перехватываю?"} -->|"сырой пакет клиента/сервера"| OOP1["DataPacket*Event<br/>setCancelled()"]
     A -->|"датаграмму до RakNet-разбора"| OOP2["Packet*Event"]
     A -->|"игровое действие (блоки, вход, урон…)"| L1["addHandler(name, cb, prio)"]
-    A -->|"старт/остановка сервера"| L2['event("server.start/close")']
+    A -->|"старт/остановка сервера"| L2["event server.start / server.close"]
     A -->|"своё внутреннее событие"| CUST["своё имя + handle()/trigger()<br/>или свой BaseEvent-класс"]
     L1 --> D{"Нужно отменять?"}
     D -- да --> P1["высокий приоритет + return false"]
