@@ -39,15 +39,17 @@ class Pig extends Animal implements Rideable{
 	}
 
 	public function updateEntityMovement(){
-		/*if($this->linkedEntity != 0){
-			$e = $this->level->entityList[$this->linkedEntity] ?? false;
-			if($e instanceof Entity){
-				$this->setAIMoveSpeed($this->getSpeed());
-				$this->moveStrafing = $e->player->moveStrafe;
-				$this->moveForward = $e->player->moveForward;
-				$this->yaw = $e->headYaw;
+		if($this->rider != 0){
+			$rider = $this->level->entityList[$this->rider] ?? false;
+			if($rider instanceof Entity && $rider->isPlayer() && $rider->player->getHeldItem()->getID() === CARROT){
+				$this->setAIMoveSpeed($this->getSpeed() * $this->getSpeedModifer());
+				$this->moveStrafing = 0;
+				$this->yaw = $rider->headYaw;
+				$this->headYaw = $this->yaw;
+				$this->moveEntityWithHeading($this->moveStrafing, $this->moveForward);
+				return;
 			}
-		}*/
+		}
 
 		parent::updateEntityMovement();
 	}
