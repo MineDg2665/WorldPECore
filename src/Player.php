@@ -112,6 +112,7 @@ class Player{
 	 * @var array
 	 */
 	public $packetAlwaysRecoverQueue = [];
+	public $packetRecoverFirst = [];
 	public $recoveryQueue = [];
 	private $receiveQueue = [];
 	private $resendQueue = [];
@@ -180,6 +181,9 @@ class Player{
 	public $lastLocalEID = 0;
 
 	public $invisibleFor = [];
+	public $profileExisted = true;
+	public $experimentalHotbar = false;
+	public $connectTime = 0;
 
 	/**
 	 * @param integer $clientID
@@ -193,6 +197,7 @@ class Player{
 		$this->server = ServerAPI::request();
 		$this->lastBreak = microtime(true);
 		$this->connectionStartedAt = microtime(true);
+		$this->experimentalHotbar = Player::$experimentalHotbar;
 		$this->clientID = $clientID;
 		$this->CID = PocketMinecraftServer::clientID($ip, $port);
 		$this->ip = $ip;
@@ -1756,6 +1761,13 @@ class Player{
 		}
 		
 		foreach($this->packetAlwaysRecoverQueue as $cnt => $data){
+			if(!isset($this->packetRecoverFirst[$cnt])){
+				$this->packetRecoverFirst[$cnt] = $time;
+			}
+			if(($time - $this->packetRecoverFirst[$cnt]) > 60){
+				unset($this->packetAlwaysRecoverQueue[$cnt], $this->packetRecoverFirst[$cnt], $this->chunkCount[$cnt]);
+				continue;
+			}
 			$maxDelay = (isset($this->chunkCount[$cnt])) ? 1 : 5;
 			if($time - $data->sendtime >= $maxDelay){
 				$this->resendQueue[$cnt] = $data;
@@ -2035,6 +2047,9 @@ class Player{
 	 */
 	public function close($reason = "", $msg = true){
 		if($this->connected === true){
+			if($this->loggedIn === true and $reason != "" and $reason !== "server stop" and (microtime(true) - $this->connectTime) < ($this->spawned === false ? 30 : 10)){
+				$this->server->trackQuickQuit($this->ip);
+			}
 			foreach($this->evid as $ev){
 				$this->server->deleteEvent($ev);
 			}
@@ -2055,9 +2070,11 @@ class Player{
 			$this->receiveQueue = [];
 			$this->resendQueue = [];
 			$this->ackQueue = [];
+			$this->packetAlwaysRecoverQueue = [];
+			$this->packetRecoverFirst = [];
 			$this->server->api->player->remove($this->CID);
 			if($msg === true and $this->username != "" and $this->spawned !== false){
-				$this->server->api->chat->broadcast("_" . $this->username . "_ left the game!");
+				$this->server->api->chat->broadcast("_" . $this->username . "_ left the game!", "> **_" . TextFormat::discordEscape($this->username) . "_ left the game!**");
 			}
 
 			foreach($this->server->api->player->getAll() as $player){
@@ -2200,10 +2217,7 @@ class Player{
             $this->username = $packet->username;
             $this->iusername = strtolower($this->username);
             $this->loginData = ["clientId" => $packet->clientId, "loginData" => $packet->loginData];
-			$this->PROTOCOL = $packet->PROTOCOL;
-			if($this->PROTOCOL <= ProtocolInfo12::CURRENT_PROTOCOL_12){
-				Player::$experimentalHotbar = false;
-			}
+			$this->PROTOCOL = (int) $packet->PROTOCOL;
 			if(!PocketMinecraftServer::$MULTIPROTOCOL && $this->PROTOCOL != ProtocolInfo::CURRENT_PROTOCOL){
 				$pk = new LoginStatusPacket;
 				$pk->status = $this->PROTOCOL < ProtocolInfo::CURRENT_PROTOCOL ? 1 : 2;
@@ -2211,27 +2225,24 @@ class Player{
 				$this->close("Incorrect protocol #" . $packet->protocol1, false);
 				return;
 			}
-            if(count($this->server->clients) > $this->server->maxClients and !$this->server->api->ban->isOp($this->iusername)){
-                $this->close("server is full!", false);
-                return;
-            }
-			if($packet->protocol1 < ProtocolInfo3::CURRENT_PROTOCOL_3 && $packet->protocol1 > ProtocolInfo::CURRENT_PROTOCOL){
-                if($packet->protocol1 < ProtocolInfo::CURRENT_PROTOCOL){
-                    $pk = new LoginStatusPacket;
-                    $pk->status = 1;
-                    $this->directDataPacket($pk);
-                }else{
-                    $pk = new LoginStatusPacket;
-                    $pk->status = 2;
-                    $this->directDataPacket($pk);
-                }
-                $this->close("Incorrect protocol #" . $packet->protocol1, false);
-                return;
-            }
-            if(preg_match('#[^a-zA-Z0-9_]#', $this->username) > 0 || $this->username === "" || isset(Player::$blacklistedUsernames[$this->iusername]) || strlen($this->iusername) > 16){
-                $this->close("Bad username", false);
-                return;
-            }
+			if(!in_array($this->PROTOCOL, PacketPool::ACCEPTED_PROTOCOLS, true)){
+				$pk = new LoginStatusPacket;
+				$pk->status = $this->PROTOCOL < ProtocolInfo::CURRENT_PROTOCOL ? 1 : 2;
+				$this->directDataPacket($pk);
+				$this->close("Incorrect protocol #" . $packet->protocol1, false);
+				return;
+			}
+			if($this->PROTOCOL <= ProtocolInfo12::CURRENT_PROTOCOL_12){
+				$this->experimentalHotbar = false;
+			}
+			if(preg_match('#[^a-zA-Z0-9_]#', $this->username) > 0 || $this->username === "" || isset(Player::$blacklistedUsernames[$this->iusername]) || strlen($this->iusername) > 16){
+				$this->close("Bad username", false);
+				return;
+			}
+			if(count($this->server->clients) > $this->server->maxClients and !$this->server->api->ban->isOp($this->iusername)){
+				$this->close("server is full!", false);
+				return;
+			}
             if($this->server->api->handle("player.connect", $this) === false){
                 $this->close("Unknown reason", false);
                 return;
@@ -2245,6 +2256,7 @@ class Player{
                 return;
             }
             $this->loggedIn = true;
+            $this->connectTime = microtime(true);
 
             if(!isset($this->CID) or $this->CID == null){
                 console("[DEBUG] Player " . $this->username . " does not have a CID", true, true, 2);
@@ -2804,7 +2816,7 @@ class Player{
 				}
 
 				if($this->server->handle("player.equipment.change", $data) !== false){
-					if(!Player::$experimentalHotbar) $this->slot = $packet->slot;
+					if(!$this->experimentalHotbar) $this->slot = $packet->slot;
 					if(($this->gamemode & 0x01) === SURVIVAL){
 						$has = false;
 						$slotPos = 0;
@@ -2818,12 +2830,12 @@ class Player{
 							}
 						}
 						
-						if(Player::$experimentalHotbar && $has) {
+						if($this->experimentalHotbar && $has) {
 							$this->slot = $packet->slot;
 							$this->curHotbarIndex = $packetSlotPos;
 						}
 						if(!$has){
-							if(Player::$experimentalHotbar) {
+							if($this->experimentalHotbar) {
 								$this->slot = $packet->slot;
 								$this->hotbar[$this->curHotbarIndex] = $packet->slot;
 							}else{
@@ -2833,7 +2845,7 @@ class Player{
 							}
 						}
 
-						if(Player::$experimentalHotbar) $this->sendInventory();
+						if($this->experimentalHotbar) $this->sendInventory();
 					}else{
 						$this->slot = $packet->slot;
 					}
@@ -3089,14 +3101,21 @@ class Player{
 											"power" => &$power,
 										]);
 										
-										$d = [
-											"x" => $this->entity->x,
-											"y" => $this->entity->y + 1.6,
-											"z" => $this->entity->z,
-											"yaw" => $this->entity->yaw,
-											"pitch" => $this->entity->pitch,
-											"shooter" => $this->entity->eid,
-										];
+									$d = [
+										"x" => $this->entity->x,
+										"y" => $this->entity->y + 1.6,
+										"z" => $this->entity->z,
+										"yaw" => $this->entity->yaw,
+										"pitch" => $this->entity->pitch,
+										"shooter" => $this->entity->eid,
+									];
+									if(count($this->level->entityList) >= 300){
+										$this->startAction = false;
+										$this->entity->inAction = false;
+										$this->entity->inActionCounter = 0;
+										$this->entity->updateMetadata();
+										break;
+									}
 										$e = $this->server->api->entity->add($this->level, ENTITY_OBJECT, OBJECT_ARROW, $d);
 										$e->speedX = -sin(($e->yaw / 180) * M_PI) * cos(($e->pitch / 180) * M_PI);
 										$e->speedZ = cos(($e->yaw / 180) * M_PI) * cos(($e->pitch / 180) * M_PI);
@@ -3640,20 +3659,20 @@ class Player{
 						$t->spawn($this);
 					}else{
 						$nbt = new NBT();
-						if($this->PROTOCOL < ProtocolInfo12::CURRENT_PROTOCOL_12) {
-							$t->setText($packet->line1, $packet->line2, $packet->line3, $packet->line4);
-							break;
-						}
-						if($nbt->load($packet->namedtag) === false){
-							break;
-						}
-						$d = array_shift($nbt->tree);
-						if($d["id"] !== TILE_SIGN){
-							$t->spawn($this);
-						}else{
+					if($this->PROTOCOL < ProtocolInfo12::CURRENT_PROTOCOL_12) {
+						$t->setText(mb_substr((string) $packet->line1, 0, 15), mb_substr((string) $packet->line2, 0, 15), mb_substr((string) $packet->line3, 0, 15), mb_substr((string) $packet->line4, 0, 15));
+						break;
+					}
+					if($nbt->load($packet->namedtag) === false){
+						break;
+					}
+					$d = array_shift($nbt->tree);
+					if($d["id"] !== TILE_SIGN){
+						$t->spawn($this);
+					}else{
 
-							$t->setText($d["Text1"], $d["Text2"], $d["Text3"], $d["Text4"]);
-						}
+						$t->setText(mb_substr((string) $d["Text1"], 0, 15), mb_substr((string) $d["Text2"], 0, 15), mb_substr((string) $d["Text3"], 0, 15), mb_substr((string) $d["Text4"], 0, 15));
+					}
 					}
 				}
 				break;
@@ -3914,6 +3933,15 @@ class Player{
 	}
 
 	public function removeItem($type, $damage, $count, $send = true, $addexpected = true){
+		$total = 0;
+		foreach($this->inventory as $item){
+			if($item->getID() === $type and $item->getMetadata() === $damage){
+				$total += $item->count;
+			}
+		}
+		if($total < $count){
+			return false;
+		}
 		while($count > 0){
 			$remove = 0;
 			foreach($this->inventory as $s => $item){
@@ -3969,6 +3997,7 @@ class Player{
 							$this->lag[] = $time - $this->packetAlwaysRecoverQueue[$count]->sendtime;
 
 							unset($this->packetAlwaysRecoverQueue[$count]);
+							unset($this->packetRecoverFirst[$count]);
 							unset($this->chunkCount[$count]);
 						}else if(isset($this->recoveryQueue[$count])){
 							$this->lag[] = $time - $this->recoveryQueue[$count]->sendtime;

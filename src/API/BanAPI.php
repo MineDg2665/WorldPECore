@@ -374,6 +374,27 @@ class BanAPI{
 	}
 
 	/**
+	 * @param string $ip
+	 * @param string $reason
+	 * @return boolean
+	 */
+	public function addIPBan($ip, $reason = "IP banned"){
+		if($this->isIPBanned($ip)){
+			return false;
+		}
+		$this->bannedIPs->set($ip);
+		$this->bannedIPs->save();
+		console("[WARNING] IP " . $ip . " banned automatically: " . $reason);
+		$this->server->send2Discord("> IP " . TextFormat::discordEscape($ip) . " banned automatically: " . TextFormat::discordEscape($reason));
+		foreach($this->server->api->player->getAll() as $p){
+			if($p instanceof Player and $p->ip === $ip){
+				$p->close("Banned IP: " . $reason, false);
+			}
+		}
+		return true;
+	}
+
+	/**
 	 * Checks is username banned or not.
 	 * @param string $username
 	 * @return boolean

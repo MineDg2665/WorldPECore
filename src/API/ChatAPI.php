@@ -114,10 +114,11 @@ class ChatAPI{
 
 	/**
 	 * @param string $message
+	 * @param string|null $discordMessage
 	 */
-	public function broadcast($message){
+	public function broadcast($message, $discordMessage = null){
 		$this->send(false, $message);
-		$this->server->send2Discord("> **" . TextFormat::discordEscape($message) . "**");
+		$this->server->send2Discord($discordMessage === null ? "> **" . TextFormat::discordEscape($message) . "**" : $discordMessage);
 	}
 
 	/**

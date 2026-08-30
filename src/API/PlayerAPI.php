@@ -395,6 +395,7 @@ class PlayerAPI{
 	public function add($CID){
 		if(isset($this->server->clients[$CID])){
 			$player = $this->server->clients[$CID];
+			$player->profileExisted = file_exists(DATA_PATH . "players/" . strtolower($player->username) . ".yml");
 			$player->data = $this->getOffline($player->username);
 			$player->gamemode = $player->data->get("gamemode");
 			$player->saveInventory = ($player->gamemode & 1) == SURVIVAL;
@@ -537,9 +538,14 @@ class PlayerAPI{
 		if(isset($this->server->clients[$CID])){
 			$player = $this->server->clients[$CID];
 			unset($this->server->clients[$CID]);
+			$wasSpawned = $player->spawned;
 			$player->close();
 			if($player->username != "" and ($player->data instanceof Config)){
-				$this->saveOffline($player->data);
+				if($player->profileExisted === false and $wasSpawned === false and PocketMinecraftServer::$SAVE_PLAYER_DATA){
+					@unlink(DATA_PATH . "players/" . strtolower($player->username) . ".yml");
+				}else{
+					$this->saveOffline($player->data);
+				}
 			}
 			
 			$this->server->preparedSQL->player->deleteCID->reset();

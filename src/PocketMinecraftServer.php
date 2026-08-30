@@ -67,6 +67,8 @@ class PocketMinecraftServer{
 		$this->entities = [];
 		$this->custom = [];
 		$this->customTimes = [];
+		$this->ipConnectAttempts = [];
+		$this->ipQuickQuits = [];
 		$this->tickCounter = 0;
 		$this->evCnt = 1;
 		$this->handCnt = 1;
@@ -645,6 +647,9 @@ class PocketMinecraftServer{
 					$this->custom["times_" . $CID] = ($this->custom["times_" . $CID] + 1) % strlen($this->description);
 					break;
 				case RakNetInfo::OPEN_CONNECTION_REQUEST_1:
+					if($this->isIPBanned($packet->ip)){
+						break;
+					}
 					if($packet->structure !== RakNetInfo::STRUCTURE){
 						console("[DEBUG] Incorrect structure #" . $packet->structure . " from " . $packet->ip . ":" . $packet->port, true, true, 2);
 						$pk = new RakNetPacket(RakNetInfo::INCOMPATIBLE_PROTOCOL_VERSION);
@@ -665,6 +670,10 @@ class PocketMinecraftServer{
 					if($this->invisible === true){
 						break;
 					}
+					if($this->isIPBanned($packet->ip)){
+						break;
+					}
+					$this->trackConnectAttempt($packet->ip);
 
 					if(count($this->clients) >= ($this->maxClients + 32)){
 						break;
@@ -700,6 +709,57 @@ class PocketMinecraftServer{
 		return crc32($ip . $port) ^ crc32($port . $ip . BOOTUP_RANDOM);
 	}
 
+	public function isIPBanned($ip){
+		return $this->api instanceof ServerAPI and isset($this->api->ban) and $this->api->ban->isIPBanned($ip);
+	}
+
+	public function trackConnectAttempt($ip){
+		$now = microtime(true);
+		if(!isset($this->ipConnectAttempts[$ip])){
+			$this->ipConnectAttempts[$ip] = [];
+		}
+		$this->ipConnectAttempts[$ip][] = $now;
+		$recent = [];
+		foreach($this->ipConnectAttempts[$ip] as $t){
+			if(($now - $t) < 60) $recent[] = $t;
+		}
+		if(count($recent) === 0){
+			unset($this->ipConnectAttempts[$ip]);
+			return;
+		}
+		$this->ipConnectAttempts[$ip] = $recent;
+		if(count($recent) >= 10){
+			unset($this->ipConnectAttempts[$ip]);
+			if(isset($this->api->ban)){
+				$this->api->ban->addIPBan($ip, "Connection flood (10+ connection attempts per minute)");
+			}
+		}
+	}
+
+	public function trackQuickQuit($ip){
+		if(!isset($this->api->ban)){
+			return;
+		}
+		$now = microtime(true);
+		if(!isset($this->ipQuickQuits[$ip])){
+			$this->ipQuickQuits[$ip] = [];
+		}
+		$this->ipQuickQuits[$ip][] = $now;
+		$recent = [];
+		foreach($this->ipQuickQuits[$ip] as $t){
+			if(($now - $t) < 180) $recent[] = $t;
+		}
+		if(count($recent) === 0){
+			unset($this->ipQuickQuits[$ip]);
+			return;
+		}
+		$this->ipQuickQuits[$ip] = $recent;
+		if(count($recent) >= 4){
+			unset($this->ipQuickQuits[$ip]);
+			$this->api->ban->addIPBan($ip, "Join/quit spam (bot behaviour)");
+		}
+	}
+
 	public function send(Packet $packet){
 		return $this->interface->writePacket($packet);
 	}
@@ -717,6 +777,22 @@ class PocketMinecraftServer{
 					if(($now - $t) > 60){
 						unset($this->customTimes[$CID], $this->custom["times_" . $CID]);
 					}
+				}
+				foreach($this->ipQuickQuits as $ip => $times){
+					$recent = [];
+					foreach($times as $t){
+						if(($now - $t) < 180) $recent[] = $t;
+					}
+					if(count($recent) === 0) unset($this->ipQuickQuits[$ip]);
+					else $this->ipQuickQuits[$ip] = $recent;
+				}
+				foreach($this->ipConnectAttempts as $ip => $times){
+					$recent = [];
+					foreach($times as $t){
+						if(($now - $t) < 60) $recent[] = $t;
+					}
+					if(count($recent) === 0) unset($this->ipConnectAttempts[$ip]);
+					else $this->ipConnectAttempts[$ip] = $recent;
 				}
 			}
 			
