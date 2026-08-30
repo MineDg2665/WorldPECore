@@ -182,7 +182,7 @@ class Player{
 
 	public $invisibleFor = [];
 	public $profileExisted = true;
-	public $experimentalHotbar = false;
+	public $useExperimentalHotbar = false;
 	public $connectTime = 0;
 
 	/**
@@ -197,7 +197,7 @@ class Player{
 		$this->server = ServerAPI::request();
 		$this->lastBreak = microtime(true);
 		$this->connectionStartedAt = microtime(true);
-		$this->experimentalHotbar = Player::$experimentalHotbar;
+		$this->useExperimentalHotbar = Player::$experimentalHotbar;
 		$this->clientID = $clientID;
 		$this->CID = PocketMinecraftServer::clientID($ip, $port);
 		$this->ip = $ip;
@@ -2233,7 +2233,7 @@ class Player{
 				return;
 			}
 			if($this->PROTOCOL <= ProtocolInfo12::CURRENT_PROTOCOL_12){
-				$this->experimentalHotbar = false;
+				$this->useExperimentalHotbar = false;
 			}
 			if(preg_match('#[^a-zA-Z0-9_]#', $this->username) > 0 || $this->username === "" || isset(Player::$blacklistedUsernames[$this->iusername]) || strlen($this->iusername) > 16){
 				$this->close("Bad username", false);
@@ -2816,7 +2816,7 @@ class Player{
 				}
 
 				if($this->server->handle("player.equipment.change", $data) !== false){
-					if(!$this->experimentalHotbar) $this->slot = $packet->slot;
+					if(!$this->useExperimentalHotbar) $this->slot = $packet->slot;
 					if(($this->gamemode & 0x01) === SURVIVAL){
 						$has = false;
 						$slotPos = 0;
@@ -2830,12 +2830,12 @@ class Player{
 							}
 						}
 						
-						if($this->experimentalHotbar && $has) {
+						if($this->useExperimentalHotbar && $has) {
 							$this->slot = $packet->slot;
 							$this->curHotbarIndex = $packetSlotPos;
 						}
 						if(!$has){
-							if($this->experimentalHotbar) {
+							if($this->useExperimentalHotbar) {
 								$this->slot = $packet->slot;
 								$this->hotbar[$this->curHotbarIndex] = $packet->slot;
 							}else{
@@ -2845,7 +2845,7 @@ class Player{
 							}
 						}
 
-						if($this->experimentalHotbar) $this->sendInventory();
+						if($this->useExperimentalHotbar) $this->sendInventory();
 					}else{
 						$this->slot = $packet->slot;
 					}
