@@ -60,7 +60,7 @@ class Level{
 		$this->blockUpdates = $blockUpdates;
 		$this->startTime = $this->time = (int) $this->level->getData("time");
 		$this->nextSave = $this->startCheck = microtime(true);
-		$this->nextSave += 90;
+		$this->nextSave += 10;
 		$this->stopTime = false;
 		$this->server->schedule(15, [$this, "checkThings"], [], true);
 		$this->server->schedule(20 * 13, [$this, "checkTime"], [], true);
@@ -346,7 +346,7 @@ class Level{
 		$this->level->setData("time", (int) $this->time);
 		$this->level->doSaveRound();
 		$this->level->saveData();
-		$this->nextSave = microtime(true) + 45;
+		$this->nextSave = microtime(true) + 10;
 	}
 
 	public function getName(){

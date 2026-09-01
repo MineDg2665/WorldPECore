@@ -67,6 +67,7 @@ class Pig extends Animal implements Rideable{
 				if(!$this->isSaddled()){
 					$e->player->consumeSingleItem(send: true);
 					$this->setSaddled(1);
+					$this->fromPlayer = true;
 				}
 				return true; //avoid further interactions
 			}

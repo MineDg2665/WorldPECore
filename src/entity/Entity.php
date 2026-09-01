@@ -1439,6 +1439,7 @@ class Entity extends Position
 			"speedX" => $this->speedX,
 			"speedY" => $this->speedY,
 			"speedZ" => $this->speedZ,
+			"State" => $this->state,
 			
 		];
 		if($this->class === ENTITY_OBJECT){
