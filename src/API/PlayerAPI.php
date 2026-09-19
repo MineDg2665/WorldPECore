@@ -41,37 +41,52 @@ class PlayerAPI{
 
 	public function handle($data, $event){
 		switch($event){
-			case "player.death":
-				if(is_numeric($data["cause"])){
-					$e = $this->server->api->entity->get($data["cause"]);
-					if($e instanceof Entity){
-						if($e instanceof Arrow){
-							if($e->shotByEntity && isset($this->server->api->entity->entities[$e->shooterEID]) && $this->server->api->entity->entities[$e->shooterEID] instanceof Entity){
-								$message = " was shot by {$this->server->api->entity->entities[$e->shooterEID]->name}";
-							}else{
-								$message = " was shot";	
-							}
-							
+		case "player.death":
+			$killer = null;
+			$action = null;
+			if(is_numeric($data["cause"])){
+				$e = $this->server->api->entity->get($data["cause"]);
+				if($e instanceof Entity){
+					if($e instanceof Arrow){
+						if($e->shotByEntity && isset($this->server->api->entity->entities[$e->shooterEID]) && $this->server->api->entity->entities[$e->shooterEID] instanceof Entity){
+							$killer = $this->server->api->entity->entities[$e->shooterEID]->name;
+							$action = " was shot by ";
+							$message = $action . $killer;
 						}else{
-							$message = " was killed by {$e->name}";
+							$message = " was shot";	
 						}
+						
+					}else{
+						$killer = $e->name;
+						$action = " was killed by ";
+						$message = $action . $killer;
 					}
-				}else{
-					$message = match ($data["cause"]) {
-						"cactus" => " was pricked to death",
-						"lava" => " tried to swim in lava",
-						"fire" => " went up in flames",
-						"burning" => " burned to death",
-						"suffocation" => " suffocated in a wall",
-						"water" => " drowned",
-						"void" => " fell out of the world",
-						"fall" => " hit the ground too hard",
-						"explosion" => " blew up",
-						default => " died",
-					};
 				}
-				$this->server->api->chat->broadcast($data["player"]->username . $message);
-				return true;
+			}else{
+				$message = match ($data["cause"]) {
+					"cactus" => " was pricked to death",
+					"lava" => " tried to swim in lava",
+					"fire" => " went up in flames",
+					"burning" => " burned to death",
+					"suffocation" => " suffocated in a wall",
+					"water" => " drowned",
+					"void" => " fell out of the world",
+					"fall" => " hit the ground too hard",
+					"explosion" => " blew up",
+					default => " died",
+				};
+			}
+			if(!isset($message)){
+				$message = " died";
+			}
+			$gameMsg = $data["player"]->username . $message;
+			if($killer !== null){
+				$discordMsg = "> **_" . TextFormat::discordEscape($data["player"]->username) . "_**" . TextFormat::discordEscape($action) . "**_" . TextFormat::discordEscape($killer) . "_**";
+			}else{
+				$discordMsg = "> **_" . TextFormat::discordEscape($data["player"]->username) . "_**" . TextFormat::discordEscape($message);
+			}
+			$this->server->api->chat->broadcast($gameMsg, $discordMsg);
+			return true;
 		}
 	}
 
