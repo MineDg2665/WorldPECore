@@ -200,9 +200,9 @@ class BanAPI{
 						$player->lastCorrect = new Vector3($player->entity->x, $player->entity->y, $player->entity->z);
 						$player->blocked = true;
 						if($issuer instanceof Player){
-							$this->server->api->chat->broadcast($player->username . " has been kicked by " . $issuer->username . ": $reason", "> **_" . TextFormat::discordEscape($player->username) . "_** has been kicked by **_" . TextFormat::discordEscape($issuer->username) . "_**: " . TextFormat::discordEscape($reason));
+							$this->server->api->chat->broadcast($player->username . " has been kicked by " . $issuer->username . ": $reason", "> **_" . TextFormat::discordEscape($player->username) . "_ has been kicked by _" . TextFormat::discordEscape($issuer->username) . "_: " . TextFormat::discordEscape($reason) . "**");
 						}else{
-							$this->server->api->chat->broadcast($player->username . " has been kicked: $reason", "> **_" . TextFormat::discordEscape($player->username) . "_** has been kicked: " . TextFormat::discordEscape($reason));
+							$this->server->api->chat->broadcast($player->username . " has been kicked: $reason", "> **_" . TextFormat::discordEscape($player->username) . "_ has been kicked: " . TextFormat::discordEscape($reason) . "**");
 						}
 					}
 				}
@@ -297,9 +297,9 @@ class BanAPI{
 							$player->close("You have been banned");
 						}
 						if($issuer instanceof Player){
-							$this->server->api->chat->broadcast($user . " has been banned by " . $issuer->username, "> **_" . TextFormat::discordEscape($user) . "_** has been banned by **_" . TextFormat::discordEscape($issuer->username) . "_**");
+							$this->server->api->chat->broadcast($user . " has been banned by " . $issuer->username, "> **_" . TextFormat::discordEscape($user) . "_ has been banned by _" . TextFormat::discordEscape($issuer->username) . "_**");
 						}else{
-							$this->server->api->chat->broadcast($user . " has been banned", "> **_" . TextFormat::discordEscape($user) . "_** has been banned");
+							$this->server->api->chat->broadcast($user . " has been banned", "> **_" . TextFormat::discordEscape($user) . "_ has been banned**");
 						}
 						$this->kick($user, "Banned");
 						return "Player \"$user\" added to ban list\n";

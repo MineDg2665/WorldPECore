@@ -81,9 +81,9 @@ class PlayerAPI{
 			}
 			$gameMsg = $data["player"]->username . $message;
 			if($killer !== null){
-				$discordMsg = "> **_" . TextFormat::discordEscape($data["player"]->username) . "_**" . TextFormat::discordEscape($action) . "**_" . TextFormat::discordEscape($killer) . "_**";
+				$discordMsg = "> **_" . TextFormat::discordEscape($data["player"]->username) . "_" . TextFormat::discordEscape($action) . "_" . TextFormat::discordEscape($killer) . "_**";
 			}else{
-				$discordMsg = "> **_" . TextFormat::discordEscape($data["player"]->username) . "_**" . TextFormat::discordEscape($message);
+				$discordMsg = "> **_" . TextFormat::discordEscape($data["player"]->username) . "_" . TextFormat::discordEscape($message) . "**";
 			}
 			$this->server->api->chat->broadcast($gameMsg, $discordMsg);
 			return true;
