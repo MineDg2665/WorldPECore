@@ -157,7 +157,7 @@ class AchievementAPI{
 			$result = ServerAPI::request()->api->dhandle("achievement.broadcast", ["player" => $player, "achievementId" => $achievementId]);
 			if($result !== false and $result !== true){
 				if(ServerAPI::request()->api->getProperty("announce-player-achievements")){
-					ServerAPI::request()->api->chat->broadcast($player->username . " has just earned the achievement [" . self::$achievements[$achievementId]["name"] . "]", "> **_" . TextFormat::discordEscape($player->username) . "_ has just earned the achievement [" . TextFormat::discordEscape(self::$achievements[$achievementId]["name"]) . "]**");
+					ServerAPI::request()->api->chat->broadcast($player->username . " has just earned the achievement [" . self::$achievements[$achievementId]["name"] . "]", ServerAPI::request()->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($player->username) . "_ has just earned the achievement [" . TextFormat::discordEscape(self::$achievements[$achievementId]["name"]) . "]**" : $player->username . " has just earned the achievement [" . self::$achievements[$achievementId]["name"] . "]");
 				}else{
 					$player->sendChat("You have just earned the achievement [" . self::$achievements[$achievementId]["name"] . "]");
 				}

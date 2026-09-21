@@ -200,9 +200,9 @@ class BanAPI{
 						$player->lastCorrect = new Vector3($player->entity->x, $player->entity->y, $player->entity->z);
 						$player->blocked = true;
 						if($issuer instanceof Player){
-							$this->server->api->chat->broadcast($player->username . " has been kicked by " . $issuer->username . ": $reason", "> **_" . TextFormat::discordEscape($player->username) . "_ has been kicked by _" . TextFormat::discordEscape($issuer->username) . "_: " . TextFormat::discordEscape($reason) . "**");
+							$this->server->api->chat->broadcast($player->username . " has been kicked by " . $issuer->username . ": $reason", $this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($player->username) . "_ has been kicked by _" . TextFormat::discordEscape($issuer->username) . "_: " . TextFormat::discordEscape($reason) . "**" : $player->username . " has been kicked by " . $issuer->username . ": $reason");
 						}else{
-							$this->server->api->chat->broadcast($player->username . " has been kicked: $reason", "> **_" . TextFormat::discordEscape($player->username) . "_ has been kicked: " . TextFormat::discordEscape($reason) . "**");
+							$this->server->api->chat->broadcast($player->username . " has been kicked: $reason", $this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($player->username) . "_ has been kicked: " . TextFormat::discordEscape($reason) . "**" : $player->username . " has been kicked: $reason");
 						}
 					}
 				}
@@ -297,9 +297,9 @@ class BanAPI{
 							$player->close("You have been banned");
 						}
 						if($issuer instanceof Player){
-							$this->server->api->chat->broadcast($user . " has been banned by " . $issuer->username, "> **_" . TextFormat::discordEscape($user) . "_ has been banned by _" . TextFormat::discordEscape($issuer->username) . "_**");
+							$this->server->api->chat->broadcast($user . " has been banned by " . $issuer->username, $this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($user) . "_ has been banned by _" . TextFormat::discordEscape($issuer->username) . "_**" : $user . " has been banned by " . $issuer->username . "\n");
 						}else{
-							$this->server->api->chat->broadcast($user . " has been banned", "> **_" . TextFormat::discordEscape($user) . "_ has been banned**");
+							$this->server->api->chat->broadcast($user . " has been banned", $this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($user) . "_ has been banned**" : $user . " has been banned\n");
 						}
 						$this->kick($user, "Banned");
 						return "Player \"$user\" added to ban list\n";
@@ -385,7 +385,7 @@ class BanAPI{
 		$this->bannedIPs->set($ip);
 		$this->bannedIPs->save();
 		console("[WARNING] IP " . $ip . " banned automatically: " . $reason);
-		$this->server->send2Discord("> IP " . TextFormat::discordEscape($ip) . " banned automatically: " . TextFormat::discordEscape($reason));
+		$this->server->send2Discord($this->server->extraprops->get("discord-pretty-format") ? "> IP " . TextFormat::discordEscape($ip) . " banned automatically: " . TextFormat::discordEscape($reason) : "IP " . $ip . " banned automatically: " . $reason);
 		foreach($this->server->api->player->getAll() as $p){
 			if($p instanceof Player and $p->ip === $ip){
 				$p->close("Banned IP: " . $reason, false);

@@ -2074,7 +2074,7 @@ class Player{
 			$this->packetRecoverFirst = [];
 			$this->server->api->player->remove($this->CID);
 			if($msg === true and $this->username != "" and $this->spawned !== false){
-				$this->server->api->chat->broadcast($this->username . " left the game!", "> **_" . TextFormat::discordEscape($this->username) . "_ left the game!**");
+				$this->server->api->chat->broadcast($this->username . " left the game!", $this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($this->username) . "_ left the game!**" : $this->username . " left the game: " . $reason);
 			}
 
 			foreach($this->server->api->player->getAll() as $player){
@@ -2687,7 +2687,7 @@ class Player{
 						$this->server->schedule(50, [$this, "orderChunks"], []);
 						$this->blocked = false;
 
-                        $this->server->send2Discord("> **_" . TextFormat::discordEscape($this->username) . "_ joined the game!**");
+                        $this->server->send2Discord($this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($this->username) . "_ joined the game!**" : $this->username . " joined the game");
 						$this->server->handle("player.spawn", $this);
 						break;
 					case 2://Chunk loaded?
@@ -3441,7 +3441,7 @@ class Player{
 						
 						if($this->server->api->handle("player.chat", $data) !== false){
 							$finalMessage = isset($data["message"]) ? $data["message"] : $message;
-							$this->server->send2Discord("> **_" . TextFormat::discordEscape($this->username) . "_ " . TextFormat::discordEscape($finalMessage) . "**");
+							$this->server->send2Discord($this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($this->username) . "_ " . TextFormat::discordEscape($finalMessage) . "**" : "<" . $this->username . "> " . $finalMessage);
 							$this->server->api->chat->send($this, $finalMessage);
 						}
 					}

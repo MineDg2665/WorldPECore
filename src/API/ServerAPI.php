@@ -212,7 +212,7 @@ class ServerAPI{
 		$this->server = new PocketMinecraftServer($this->getProperty("server-name"), $this->getProperty("gamemode"), Utils::getSeedNumeric($this->getProperty("level-seed")), $this->getProperty("server-port"), ($ip = $this->getProperty("server-ip")) != "" ? $ip : "0.0.0.0");
 		$this->server->api = $this;
 		self::$serverRequest = $this->server;
-		$this->server->send2Discord("> # SERVER STATUS:\n > **_Online_ 🟢!**");
+		$this->server->send2Discord($this->server->extraprops->get("discord-pretty-format") ? "> # SERVER STATUS:\n > **_Online_ 🟢!**" : "[INFO] Starting Minecraft PE server version " . CURRENT_MINECRAFT_VERSION);
 		console("[INFO] This server is running WorldPECore version " . MAJOR_VERSION . FORMAT_RESET . " \"" . CODENAME . "\" (MCPE: " . CURRENT_MINECRAFT_VERSION . ") (API " . CURRENT_API_VERSION . ") (PHP " . PHP_VERSION . ")", true, true, 0);
 		console("[INFO] WorldPECore is distributed under the LGPL License", true, true, 0);
 

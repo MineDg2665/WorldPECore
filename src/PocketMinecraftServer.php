@@ -100,6 +100,7 @@ class PocketMinecraftServer{
 			"save-console-data" => true,
 			"query-plugins" => false,
 			"discord-msg" => false,
+			"discord-pretty-format" => false,
 			"discord-ru-smiles" => false,
 			"discord-webhook-url" => "none",
 			"discord-bot-name" => "WorldPECore Logger",
@@ -288,7 +289,7 @@ class PocketMinecraftServer{
 			if(($this->api instanceof ServerAPI) === true){
 				if(($this->api->chat instanceof ChatAPI) === true){
 					$this->api->chat->send(false, "Stopping server...");
-					self::$_tmp = new StopMessageThread($this, "> # SERVER STATUS:\n > **_Offline_ 🔴!**"); //broadcast didnt want to send message to discord for some reason
+					self::$_tmp = new StopMessageThread($this, $this->extraprops->get("discord-pretty-format") ? "> # SERVER STATUS:\n > **_Offline_ 🔴!**" : "[INFO] Stopping server...");
 				}
 			}
 			$this->stop = true;

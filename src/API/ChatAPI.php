@@ -37,7 +37,7 @@ class ChatAPI{
 				}
 				$sender = ($issuer instanceof Player) ? "Server" : ucfirst($issuer);
 				if(Player::$disableEmojisInChat && Utils::hasEmoji($s)) return "Your message contains illegal characters!";
-				$this->server->api->chat->broadcast("[$sender] " . $s, "> **_" . TextFormat::discordEscape($sender) . "_ " . TextFormat::discordEscape($s) . "**");
+				$this->server->api->chat->broadcast("[$sender] " . $s, $this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($sender) . "_ " . TextFormat::discordEscape($s) . "**" : "[$sender] " . $s);
 				break;
 			case "me":
 				$s = implode(" ", $params);
@@ -55,7 +55,7 @@ class ChatAPI{
 				}
 				$msg = implode(" ", $params);
 				if(Player::$disableEmojisInChat && Utils::hasEmoji($msg)) return "Your message contains illegal characters!";
-				$this->broadcast("* $sender $msg", "> **_" . TextFormat::discordEscape($sender) . "_ " . TextFormat::discordEscape($msg) . "**");
+				$this->broadcast("* $sender $msg", $this->server->extraprops->get("discord-pretty-format") ? "> **_" . TextFormat::discordEscape($sender) . "_ " . TextFormat::discordEscape($msg) . "**" : "* $sender $msg");
 				break;
 			case "tell":
 				if(!isset($params[0]) or !isset($params[1])) return "Usage: /$cmd <player> <message>\n";
@@ -118,7 +118,11 @@ class ChatAPI{
 	 */
 	public function broadcast($message, $discordMessage = null){
 		$this->send(false, $message);
-		$this->server->send2Discord($discordMessage === null ? "> **" . TextFormat::discordEscape($message) . "**" : $discordMessage);
+		if($this->server->extraprops->get("discord-pretty-format")){
+			$this->server->send2Discord($discordMessage === null ? "> **" . TextFormat::discordEscape($message) . "**" : $discordMessage);
+		}else{
+			$this->server->send2Discord($message);
+		}
 	}
 
 	/**
