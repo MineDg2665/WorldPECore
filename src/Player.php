@@ -2340,6 +2340,13 @@ class Player{
             }
             $this->slot = $this->hotbar[0];
 
+			if($this->PROTOCOL <= ProtocolInfo9::CURRENT_PROTOCOL_9){
+				if(($this->gamemode & 0x01) === 0x01)
+					$this->slot = 0;
+				else
+					$this->slot = 42;
+			}
+
             for($i = 0; $i < count($this->hotbar); ++$i){
                 if($this->hotbar[$i] > (($this->gamemode & 1) == 0 ? 36 : count(BlockAPI::$creative))) $this->hotbar[$i] = -1;
                 if($this->hotbar[$i] < -1) $this->hotbar[$i] = -1;
@@ -2574,6 +2581,12 @@ class Player{
 					$this->hotbar = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 				}
 				$this->slot = $this->hotbar[0];
+				if($this->PROTOCOL <= ProtocolInfo9::CURRENT_PROTOCOL_9){
+					if(($this->gamemode & 0x01) === 0x01)
+						$this->slot = 0;
+					else
+						$this->slot = 42;
+				}
 
 				for($i = 0; $i < count($this->hotbar); ++$i){
 					if($this->hotbar[$i] > (($this->gamemode & 1) == 0 ? 36 : count(BlockAPI::$creative))) $this->hotbar[$i] = -1;
@@ -3706,7 +3719,7 @@ class Player{
 	 */
 	
 	public function getHeldItem(){
-		if($this->PROTOCOL <= Protocolinfo9::CURRENT_PROTOCOL_9){
+		if($this->PROTOCOL <= ProtocolInfo9::CURRENT_PROTOCOL_9){
 			ConsoleAPI::debug("Slot may exist issue , plz check the correct slot using setCurrentSlot first !");
 		}
 		return $this->getSlot($this->slot);

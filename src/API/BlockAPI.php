@@ -683,6 +683,11 @@ class BlockAPI{
             RAIL => AIR,
             POWERED_RAIL => AIR,
             LIT_PUMPKIN => MELON_BLOCK,
+//			BUCKET => [BONE, 0],
+//            RAIL => [BONE, 0],
+//            POWERED_RAIL => [BONE, 0],
+//            LIT_PUMPKIN => [MELON_BLOCK, 0],
+//			MUSHROOM_STEW => [BOWL, 0],
             PUMPKIN_SEEDS => MELON_SEEDS,
             PUMPKIN_PIE => BREAD,
             BEETROOT => BREAD,
@@ -698,6 +703,7 @@ class BlockAPI{
             ];
         }
 
+		//return $idMap[$itemId] ?? [$itemId, $metaData];
         return $idMap[$itemId] ?? $itemId;
     }
 	
