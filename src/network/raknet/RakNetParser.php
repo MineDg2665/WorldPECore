@@ -1,7 +1,7 @@
 <?php
 
 class RakNetParser{
-	public static function parse(&$buffer, $source, $port){
+	public static function parse(&$buffer, $source, $port, $maxACKAllowed = -1, &$ackCnt = 0){
 		$offset = 0;
 		++$offset;
 		$packet = new RakNetPacket(ord(substr($buffer, $offset - 1, 1)));
@@ -65,25 +65,35 @@ class RakNetParser{
 				$offset += 2;
 				$count = Utils::readShort(substr($buffer, $offset - 2, 2), false);
 				$packet->packets = [];
-				$limit = 4096;
-				for($i = 0; $i < $count && isset($buffer[$offset]) && count($packet->packets) < $limit; ++$i){
+				$acks = 0;
+				$ackLimit = $maxACKAllowed >= 0 ? $maxACKAllowed : 65536;
+				for($i = 0; $i < $count && isset($buffer[$offset]); ++$i){
 					++$offset;
 					if(ord(substr($buffer, $offset - 1, 1)) === 0){
 						$offset += 3;
 						$start = Utils::readTriad(strrev(substr($buffer, $offset - 3, 3)));
 						$offset += 3;
 						$end = Utils::readTriad(strrev(substr($buffer, $offset - 3, 3)));
-						if(($end - $start) > 4096){
-							$end = $start + 4096;
+						$range = ($end - $start) + 1;
+						if($end < $start || $acks + $range > $ackLimit){
+							$packet = false;
+							break;
 						}
-						for($c = $start; $c <= $end && count($packet->packets) < $limit; ++$c){
+						$acks += $range;
+						for($c = $start; $c <= $end; ++$c){
 							$packet->packets[] = $c;
 						}
 					}else{
 						$offset += 3;
+						if($acks + 1 > $ackLimit){
+							$packet = false;
+							break;
+						}
+						++$acks;
 						$packet->packets[] = Utils::readTriad(strrev(substr($buffer, $offset - 3, 3)));
 					}
 				}
+				$ackCnt = $acks;
 				break;
 			default:
 				$packet = false;

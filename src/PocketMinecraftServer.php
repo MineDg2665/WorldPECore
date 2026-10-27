@@ -768,17 +768,17 @@ class PocketMinecraftServer{
 	public function tick(){
 		$time = microtime(true);
 		if($this->lastTick <= ($time - 0.05)){
+			foreach($this->customTimes as $CID => $lastTime){
+				if(($time - $lastTime) > 4){
+					unset($this->customTimes[$CID], $this->custom["times_$CID"]);
+				}
+			}
 			$this->tickMeasure[] = $this->lastTick = $time;
 			unset($this->tickMeasure[key($this->tickMeasure)]);
 			++$this->ticks;
 			
 			if((++$this->tickCounter % 1200) === 0){
 				$now = microtime(true);
-				foreach($this->customTimes as $CID => $t){
-					if(($now - $t) > 60){
-						unset($this->customTimes[$CID], $this->custom["times_" . $CID]);
-					}
-				}
 				foreach($this->ipQuickQuits as $ip => $times){
 					$recent = [];
 					foreach($times as $t){

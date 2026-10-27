@@ -25,6 +25,43 @@ class NBT{
 		$this->binary .= $bin;
 	}
 
+	public function loadSignNBT($str){
+		$this->offset = 0;
+		$this->binary = (string) $str;
+		$tag = ord($this->read(1));
+		if($tag == self::TAG_COMPOUND){
+			$name = $this->readTAG_STRING_maxlen(2);
+			if($name != "") return false;
+			$value = [];
+			for($n = 0; $n < 8; ++$n){
+				$tag = ord($this->read(1));
+				if($tag == self::TAG_END){
+					break;
+				}elseif($tag == self::TAG_INT){
+					$name = $this->readTAG_STRING_maxlen(1);
+					if($name != "x" && $name != "y" && $name != "z") return false;
+					$value[$name] = $this->readTAG_INT();
+				}elseif($tag == self::TAG_STRING){
+					$name = $this->readTAG_STRING_maxlen(5);
+					if($name == "id"){
+						$s = $this->readTAG_STRING_maxlen(4);
+						if($s != "Sign") return false;
+						$value[$name] = $s;
+					}elseif($name == "Text1" || $name == "Text2" || $name == "Text3" || $name == "Text4"){
+						$value[$name] = $this->readTAG_STRING_maxlen(15 * 4);
+					}else{
+						return false;
+					}
+				}else{
+					return false;
+				}
+			}
+			if(count($value) != 8) return false;
+			return $value;
+		}
+		return false;
+	}
+
 	public function load($str){
 		$this->offset = 0;
 		$this->binary = (string) $str;
@@ -98,6 +135,11 @@ class NBT{
 
 	private function feof(){
 		return !isset($this->binary[$this->offset]);
+	}
+
+	public function readTAG_STRING_maxlen($ml){
+		$len = Utils::readLShort($this->read(2), false);
+		return $this->read($len <= $ml ? $len : $ml);
 	}
 
 	public function readTAG_STRING(){

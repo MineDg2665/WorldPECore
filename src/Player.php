@@ -228,7 +228,8 @@ class Player{
 		$this->chatMessagesQueue = new RakNetPacket(RakNetInfo::DATA_PACKET_0);
 		$this->chatMessagesQueue->data = [];
 
-		//$this->server->schedule(20 * 60, [$this, "clearQueue"], [], true);
+		$this->server->schedule(20 * 60, [$this, "clearQueue"], [], true);
+		$this->server->interface->maxACKsAllowed["{$this->ip}:{$this->port}"] = 0;
 		
 		$this->evid[] = $this->server->event("server.close", [$this, "close"]);
 		console("[DEBUG] New Session started with $ip:$port. MTU {$this->MTU}, Client ID {$this->clientID}", true, true, 2);
@@ -2062,6 +2063,9 @@ class Player{
 			$this->sendBuffer();
 			$this->directDataPacket(new DisconnectPacket);
 			$this->connected = false;
+			if($this->server->interface instanceof MinecraftInterface){
+				unset($this->server->interface->maxACKsAllowed["{$this->ip}:{$this->port}"]);
+			}
 			$this->level->freeAllChunks($this);
 			$this->loggedIn = false;
 			$this->buffer = null;
@@ -2096,6 +2100,12 @@ class Player{
 			if($this->entity instanceof Entity){
 				$this->entity->close();
 			}
+		}
+	}
+
+	public function __destruct(){
+		if($this->connected === true && $this->server instanceof PocketMinecraftServer && $this->server->interface instanceof MinecraftInterface){
+			unset($this->server->interface->maxACKsAllowed["{$this->ip}:{$this->port}"]);
 		}
 	}
 
@@ -3668,30 +3678,32 @@ class Player{
 					if($t->data["creator"] !== $this->username){
 						$t->spawn($this);
 					}else{
+						if($this->PROTOCOL < ProtocolInfo12::CURRENT_PROTOCOL_12){
+							$t->setText(mb_substr((string) $packet->line1, 0, 15), mb_substr((string) $packet->line2, 0, 15), mb_substr((string) $packet->line3, 0, 15), mb_substr((string) $packet->line4, 0, 15));
+							break;
+						}
 						$nbt = new NBT();
-					if($this->PROTOCOL < ProtocolInfo12::CURRENT_PROTOCOL_12) {
-						$t->setText(mb_substr((string) $packet->line1, 0, 15), mb_substr((string) $packet->line2, 0, 15), mb_substr((string) $packet->line3, 0, 15), mb_substr((string) $packet->line4, 0, 15));
-						break;
-					}
-					if($nbt->load($packet->namedtag) === false){
-						break;
-					}
-					$d = array_shift($nbt->tree);
-					if($d["id"] !== TILE_SIGN){
-						$t->spawn($this);
-					}else{
-
-						$t->setText(mb_substr((string) $d["Text1"], 0, 15), mb_substr((string) $d["Text2"], 0, 15), mb_substr((string) $d["Text3"], 0, 15), mb_substr((string) $d["Text4"], 0, 15));
-					}
+						$d = $nbt->loadSignNBT($packet->namedtag);
+						if($d === false){
+							$t->spawn($this);
+						}else{
+							$t->setText(mb_substr((string) $d["Text1"], 0, 15), mb_substr((string) $d["Text2"], 0, 15), mb_substr((string) $d["Text3"], 0, 15), mb_substr((string) $d["Text4"], 0, 15));
+						}
 					}
 				}
 				break;
 			case ProtocolInfo::SET_ENTITY_LINK_PACKET:
+				if($this->spawned === false){
+					break;
+				}
 				if($this->entity->riding != 0){
 					$this->entity->setRiding(null);
 				}
 				break;
 			case ProtocolInfo::PLAYER_INPUT_PACKET:
+				if($this->spawned === false){
+					break;
+				}
 				$this->isJumping = $packet->isJumping;
 				$this->isSneaking = $packet->isSneaking;
 				$this->entity->moveForward = $packet->moveForward;
