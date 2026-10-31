@@ -48,7 +48,7 @@ class MinecraftInterface{
 
 			$packet = RakNetParser::parse($buffer, $source, $port, $acks, $ackCnt);
 			if($packet !== false){
-				if($ackCnt != 0 && isset($this->maxACKsAllowed[$id])){
+				if($ackCnt != 0 && isset($this->maxACKsAllowed[$id]) && $packet->pid() != RakNetInfo::NACK){
 					$this->maxACKsAllowed[$id] = $acks - $ackCnt;
 				}
 				$packet->ip = $source;
@@ -92,7 +92,7 @@ class MinecraftInterface{
 			return 0;
 		}elseif($packet instanceof RakNetPacket){
 			RakNetCodec::encode($packet);
-			if($packet->pid() >= RakNetInfo::DATA_PACKET_0 && $packet->pid() <= RakNetInfo::DATA_PACKET_F){
+			if($packet->pid() >= RakNetInfo::DATA_PACKET_0 && $packet->pid() <= RakNetInfo::DATA_PACKET_F && $packet->incrementAllowedAck){
 				$id = "{$packet->ip}:{$packet->port}";
 				if(isset($this->maxACKsAllowed[$id])){
 					if($this->maxACKsAllowed[$id] < 65536){
