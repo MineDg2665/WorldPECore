@@ -57,13 +57,13 @@ class MinecraftInterface{
 					return false;
 				}
 				return $packet;
-			}elseif($ackCnt > 0){
+			}elseif($pid === RakNetInfo::ACK && $ackCnt > $acks){
 				$CID = PocketMinecraftServer::clientID($source, $port);
 				$server = ServerAPI::request();
 				$c = $server->clients[$CID] ?? false;
 				if($c !== false){
 					$username = $c->iusername == "" ? $id : $c->iusername;
-					ConsoleAPI::warn("Player '$username' sent too many ACK packets (allowed: {$acks}, attempted {$ackCnt} or more)!");
+					ConsoleAPI::warn("Player '$username' sent too many ACK packets (allowed: {$acks}, attempted {$ackCnt})!");
 					$c->close("too many ack packets");
 				}
 			}
