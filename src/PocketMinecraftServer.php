@@ -115,6 +115,7 @@ class PocketMinecraftServer{
 			"allow-dropping-single-items" => Player::$allowDroppingSingleItems,
 			"enable-light-updates" => self::$ENABLE_LIGHT_UPDATES,
 			"min-block-breaking-progress" => self::$BLOCK_BREAKING_PROGRESS,
+			"limit-ack-packets" => MinecraftInterface::$LIMIT_ACKS,
 			"multiprotocol" => self::$MULTIPROTOCOL,
 		], comments: [
 			"min-block-breaking-progress" => [
@@ -149,6 +150,10 @@ class PocketMinecraftServer{
 			"keep-chunks-loaded" => [
 				"If disabled chunks won't be loaded into memory until the player(or something else) loads them"
 			],
+			"limit-ack-packets" => [
+				"Prevents players from sending too many ACK/NACK packets if enabled",
+				"Disabling this settings may result in server getting crashed/frozen if someone sends ack packet with a lot of sequences"
+			],
 			"multiprotocol" => [
 				"Allows clients with different protocol versions to join (MCPE 0.3.0-0.8.1).",
 				"When disabled only MCPE 0.8.1 is accepted."
@@ -169,6 +174,7 @@ class PocketMinecraftServer{
 		PocketMinecraftServer::$SAVE_PLAYER_DATA = $this->extraprops->get("save-player-data");
 		Explosion::$enableExplosions = $this->extraprops->get("enable-explosions");
 		NetherReactorBlock::$enableReactor = $this->extraprops->get("enable-nether-reactor");
+		MinecraftInterface::$LIMIT_ACKS = $this->extraprops->get("limit-ack-packets");
 		self::$MULTIPROTOCOL = $this->extraprops->get("multiprotocol");
 		if(self::$TICKING_MODE == self::TICK_F20TPS){
 			ConsoleAPI::warn("Forcing 20 tps. This may result in higher CPU usage!");
@@ -178,6 +184,9 @@ class PocketMinecraftServer{
 		}
 		if(!self::$ENABLE_LIGHT_UPDATES){
 			ConsoleAPI::warn("Light updates are disabled: this should decrease memory consumption and increase performance, but will prevent all existing light from updating and disable some light-dependant features.");
+		}
+		if(!MinecraftInterface::$LIMIT_ACKS){
+			ConsoleAPI::warn("ACK packet limit is disabled: server can be frozen or crashed using bad ACK packets!");
 		}
 		if($this->extraprops->get("discord-msg")){
 			if($this->extraprops->get("discord-webhook-url") !== "none"){
@@ -737,27 +746,31 @@ class PocketMinecraftServer{
 		}
 	}
 
-	public function trackQuickQuit($ip){
+	public function trackQuickQuit($ip, $username){
 		if(!isset($this->api->ban)){
+			return;
+		}
+		$username = strtolower((string) $username);
+		if($username === ""){
 			return;
 		}
 		$now = microtime(true);
 		if(!isset($this->ipQuickQuits[$ip])){
 			$this->ipQuickQuits[$ip] = [];
 		}
-		$this->ipQuickQuits[$ip][] = $now;
-		$recent = [];
-		foreach($this->ipQuickQuits[$ip] as $t){
-			if(($now - $t) < 180) $recent[] = $t;
+		$this->ipQuickQuits[$ip][$username] = $now;
+		foreach($this->ipQuickQuits[$ip] as $name => $t){
+			if(($now - $t) >= 60){
+				unset($this->ipQuickQuits[$ip][$name]);
+			}
 		}
-		if(count($recent) === 0){
+		if(count($this->ipQuickQuits[$ip]) === 0){
 			unset($this->ipQuickQuits[$ip]);
 			return;
 		}
-		$this->ipQuickQuits[$ip] = $recent;
-		if(count($recent) >= 4){
+		if(count($this->ipQuickQuits[$ip]) >= 5){
 			unset($this->ipQuickQuits[$ip]);
-			$this->api->ban->addIPBan($ip, "Join/quit spam (bot behaviour)");
+			$this->api->ban->addIPBan($ip, "Join/quit spam");
 		}
 	}
 
@@ -779,13 +792,15 @@ class PocketMinecraftServer{
 			
 			if((++$this->tickCounter % 1200) === 0){
 				$now = microtime(true);
-				foreach($this->ipQuickQuits as $ip => $times){
-					$recent = [];
-					foreach($times as $t){
-						if(($now - $t) < 180) $recent[] = $t;
+				foreach($this->ipQuickQuits as $ip => $names){
+					foreach($names as $name => $t){
+						if(($now - $t) >= 60){
+							unset($this->ipQuickQuits[$ip][$name]);
+						}
 					}
-					if(count($recent) === 0) unset($this->ipQuickQuits[$ip]);
-					else $this->ipQuickQuits[$ip] = $recent;
+					if(count($this->ipQuickQuits[$ip]) === 0){
+						unset($this->ipQuickQuits[$ip]);
+					}
 				}
 				foreach($this->ipConnectAttempts as $ip => $times){
 					$recent = [];

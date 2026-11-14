@@ -49,7 +49,7 @@ class UDPSocket{
 			$c = socket_select($read, $_, $_, 0, (int)($waitTime*1000000));
 			if($c === false || $c <= 0) return false;
 		}
-		return @socket_recvfrom($this->sock, $buf, 65535, 0, $source, $port);
+		return @socket_recvfrom($this->sock, $buf, 2048, 0, $source, $port);
 	}
 
 	public function write($data, $dest, $port){

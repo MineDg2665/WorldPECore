@@ -167,7 +167,9 @@ class PlayerAPI{
 				if($additional){
 					$arqCnt = count($p->packetAlwaysRecoverQueue);
 					$rqCnt = count($p->recoveryQueue);
-					$additionalInfo = "ARQ/RQ/EMPS: $arqCnt/$rqCnt";
+					$maxAck = $this->server->interface->maxACKsAllowed["{$p->ip}:{$p->port}"] ?? "???";
+					$maxNack = $this->server->interface->maxNACKsAllowed["{$p->ip}:{$p->port}"] ?? "???";
+					$additionalInfo = "ARQ/RQ/MACK/MNAK: $arqCnt/$rqCnt/$maxAck/$maxNack";
 				}
 				$chunksCnt = count($p->chunkDataSent);
 				return "{$p->username}'s ping: {$ping}ms, packet loss {$pkLoss}%, $transfer KB/s. Chunks: $chunksCnt/256\n$additionalInfo";

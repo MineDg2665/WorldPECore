@@ -117,6 +117,7 @@ class Player{
 	private $receiveQueue = [];
 	private $resendQueue = [];
 	private $ackQueue = [];
+	public $maxRecvPacketSeq = 0;
 
 	public $slotCount = 7;
 	public $bedPosition = null;
@@ -229,7 +230,7 @@ class Player{
 		$this->chatMessagesQueue->data = [];
 
 		$this->server->schedule(20 * 60, [$this, "clearQueue"], [], true);
-		$this->server->interface->maxACKsAllowed["{$this->ip}:{$this->port}"] = 0;
+		$this->server->interface->init($this->ip, $this->port);
 		
 		$this->evid[] = $this->server->event("server.close", [$this, "close"]);
 		console("[DEBUG] New Session started with $ip:$port. MTU {$this->MTU}, Client ID {$this->clientID}", true, true, 2);
@@ -575,11 +576,6 @@ class Player{
 		if(EventHandler::callEvent(new DataPacketSendEvent($this, $packet)) === BaseEvent::DENY) return false;
 		if(!$this->convertToLocalEIDPacket($packet)) return false;
 
-		$pk = new RakNetPacket(RakNetInfo::DATA_PACKET_0);
-		$pk->data[] = $packet;
-		$pk->seqNumber = $this->counter[0]++;
-		$pk->sendtime = microtime(true);
-
 		$packet->PROTOCOL = $this->PROTOCOL;
 		$packet->encode();
 		$len = strlen($packet->buffer) + 1;
@@ -587,6 +583,11 @@ class Player{
 		if($len > $MTU){
 			return $this->sendBigPacketAlwaysRecover($packet); //TODO fix
 		}
+
+		$pk = new RakNetPacket(RakNetInfo::DATA_PACKET_0);
+		$pk->data[] = $packet;
+		$pk->seqNumber = $this->counter[0]++;
+		$pk->sendtime = microtime(true);
 
 		$packet->messageIndex = $this->counter[3]++;
 		$packet->reliability = RakNetInfo::RELIABILITY_RELIABLE;
@@ -1769,7 +1770,7 @@ class Player{
 				unset($this->packetAlwaysRecoverQueue[$cnt], $this->packetRecoverFirst[$cnt], $this->chunkCount[$cnt]);
 				continue;
 			}
-			$maxDelay = (isset($this->chunkCount[$cnt])) ? 1 : 5;
+			$maxDelay = (isset($this->chunkCount[$cnt])) ? 2 : 5;
 			if($time - $data->sendtime >= $maxDelay){
 				$this->resendQueue[$cnt] = $data;
 			}
@@ -2049,7 +2050,7 @@ class Player{
 	public function close($reason = "", $msg = true){
 		if($this->connected === true){
 			if($this->loggedIn === true and $reason != "" and $reason !== "server stop" and (microtime(true) - $this->connectTime) < ($this->spawned === false ? 30 : 10)){
-				$this->server->trackQuickQuit($this->ip);
+				$this->server->trackQuickQuit($this->ip, $this->iusername);
 			}
 			foreach($this->evid as $ev){
 				$this->server->deleteEvent($ev);
@@ -2064,7 +2065,7 @@ class Player{
 			$this->directDataPacket(new DisconnectPacket);
 			$this->connected = false;
 			if($this->server->interface instanceof MinecraftInterface){
-				unset($this->server->interface->maxACKsAllowed["{$this->ip}:{$this->port}"]);
+				$this->server->interface->clear($this->ip, $this->port);
 			}
 			$this->level->freeAllChunks($this);
 			$this->loggedIn = false;
@@ -2105,7 +2106,7 @@ class Player{
 
 	public function __destruct(){
 		if($this->connected === true && $this->server instanceof PocketMinecraftServer && $this->server->interface instanceof MinecraftInterface){
-			unset($this->server->interface->maxACKsAllowed["{$this->ip}:{$this->port}"]);
+			$this->server->interface->clear($this->ip, $this->port);
 		}
 	}
 
@@ -3999,36 +4000,39 @@ class Player{
 			$this->timeout = $time + 20;
 			switch($packet->pid()){
 				case RakNetInfo::NACK:
-					foreach($packet->packets as $count){
-						if(isset($this->packetAlwaysRecoverQueue[$count])){
-							$this->resendQueue[$count] = $this->packetAlwaysRecoverQueue[$count];
-							$this->resendQueue[$count]->incrementAllowedAck = false;
-						}else if(isset($this->recoveryQueue[$count])){
-							$this->resendQueue[$count] =& $this->recoveryQueue[$count];
-							$this->resendQueue[$count]->incrementAllowedAck = false;
-							$this->lag[] = $time - $this->recoveryQueue[$count]->sendtime;
-							unset($this->recoveryQueue[$count]);
-						}else{ //lost and wont be recovered
-							++$this->packetStats[1];
+					foreach($packet->packets->sequences as $start => $end){
+						for($count = $start; $count <= $end; ++$count){
+							if(isset($this->packetAlwaysRecoverQueue[$count])){
+								$this->resendQueue[$count] = $this->packetAlwaysRecoverQueue[$count];
+								$this->resendQueue[$count]->incrementAllowedAck = false;
+							}else if(isset($this->recoveryQueue[$count])){
+								$this->resendQueue[$count] = $this->recoveryQueue[$count];
+								$this->resendQueue[$count]->incrementAllowedAck = false;
+								$this->lag[] = $time - $this->recoveryQueue[$count]->sendtime;
+								unset($this->recoveryQueue[$count]);
+							}else{ //lost and wont be recovered
+								++$this->packetStats[1];
+							}
 						}
 					}
 					break;
 
 				case RakNetInfo::ACK:
 					//if(mt_rand(0, 99) > 50) break;
-					foreach($packet->packets as $count){
-						if(isset($this->packetAlwaysRecoverQueue[$count])){
-							$this->lag[] = $time - $this->packetAlwaysRecoverQueue[$count]->sendtime;
-
-							unset($this->packetAlwaysRecoverQueue[$count]);
-							unset($this->packetRecoverFirst[$count]);
-							unset($this->chunkCount[$count]);
-						}else if(isset($this->recoveryQueue[$count])){
-							$this->lag[] = $time - $this->recoveryQueue[$count]->sendtime;
-							unset($this->recoveryQueue[$count]);
+					foreach($packet->packets->sequences as $start => $end){
+						for($count = $start; $count <= $end; ++$count){
+							if(isset($this->packetAlwaysRecoverQueue[$count])){
+								$this->lag[] = $time - $this->packetAlwaysRecoverQueue[$count]->sendtime;
+								unset($this->packetAlwaysRecoverQueue[$count]);
+								unset($this->packetRecoverFirst[$count]);
+								unset($this->chunkCount[$count]);
+							}else if(isset($this->recoveryQueue[$count])){
+								$this->lag[] = $time - $this->recoveryQueue[$count]->sendtime;
+								unset($this->recoveryQueue[$count]);
+							}
+							unset($this->resendQueue[$count]);
+							++$this->packetStats[0];
 						}
-						unset($this->resendQueue[$count]);
-						++$this->packetStats[0];
 					}
 					break;
 
@@ -4049,6 +4053,11 @@ class Player{
 				case RakNetInfo::DATA_PACKET_E:
 				case RakNetInfo::DATA_PACKET_F:
 					$this->ackQueue[] = $packet->seqNumber;
+
+					if($packet->seqNumber > $this->maxRecvPacketSeq){
+						$this->maxRecvPacketSeq = $packet->seqNumber;
+					}
+
 					$this->receiveQueue[$packet->seqNumber] = [];
 					foreach($packet->data as $pk){
 						$this->receiveQueue[$packet->seqNumber][] = $pk;

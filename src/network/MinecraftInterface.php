@@ -1,12 +1,16 @@
 <?php
 
 class MinecraftInterface{
+	public static $LIMIT_ACKS = true;
 
 	public $bandwidth;
 	private $socket;
 	private $packets;
 	public $start;
 	public $maxACKsAllowed = [];
+	public $maxNACKsAllowed = [];
+	public $maxRecordedSeq = [];
+
 	function __construct($server, $port = 25565, $serverip = "0.0.0.0"){
 		$this->socket = new UDPSocket($server, $port, true, $serverip);
 		if($this->socket->connected === false){
@@ -38,18 +42,43 @@ class MinecraftInterface{
 		return $this->parsePacket($buf, $source, $port);
 	}
 
+	public function clear($ip, $port){
+		$id = "$ip:$port";
+		unset($this->maxACKsAllowed[$id]);
+		unset($this->maxNACKsAllowed[$id]);
+		unset($this->maxRecordedSeq[$id]);
+	}
+
+	public function init($ip, $port){
+		$id = "$ip:$port";
+		$this->maxACKsAllowed[$id] = 0;
+		$this->maxNACKsAllowed[$id] = 0;
+		unset($this->maxRecordedSeq[$id]);
+	}
+
 	private function parsePacket($buffer, $source, $port){
 		$pid = ord($buffer[0]);
 
 		if(RakNetInfo::isValid($pid)){
 			$id = "$source:$port";
-			$acks = $this->maxACKsAllowed[$id] ?? 0;
 			$ackCnt = 0;
+			$nackCnt = 0;
+			$acks = $this->maxACKsAllowed[$id] ?? 0;
+			$nacks = $this->maxNACKsAllowed[$id] ?? 0;
+			if(!static::$LIMIT_ACKS){
+				$acks = -1;
+				$nacks = -1;
+			}
 
-			$packet = RakNetParser::parse($buffer, $source, $port, $acks, $ackCnt);
+			$packet = RakNetParser::parse($buffer, $source, $port, $acks, $ackCnt, $nacks, $nackCnt);
 			if($packet !== false){
-				if($ackCnt != 0 && isset($this->maxACKsAllowed[$id]) && $packet->pid() != RakNetInfo::NACK){
-					$this->maxACKsAllowed[$id] = $acks - $ackCnt;
+				if(static::$LIMIT_ACKS && $ackCnt != 0){
+					$pid = $packet->pid();
+					if($pid === RakNetInfo::ACK && isset($this->maxACKsAllowed[$id])){
+						$this->maxACKsAllowed[$id] = $acks - $ackCnt;
+					}elseif($pid === RakNetInfo::NACK && isset($this->maxNACKsAllowed[$id])){
+						$this->maxNACKsAllowed[$id] = $nacks - $ackCnt;
+					}
 				}
 				$packet->ip = $source;
 				$packet->port = $port;
@@ -57,13 +86,17 @@ class MinecraftInterface{
 					return false;
 				}
 				return $packet;
-			}elseif($pid === RakNetInfo::ACK && $ackCnt > $acks){
+			}elseif(static::$LIMIT_ACKS && $ackCnt > 0){
 				$CID = PocketMinecraftServer::clientID($source, $port);
 				$server = ServerAPI::request();
 				$c = $server->clients[$CID] ?? false;
 				if($c !== false){
 					$username = $c->iusername == "" ? $id : $c->iusername;
-					ConsoleAPI::warn("Player '$username' sent too many ACK packets (allowed: {$acks}, attempted {$ackCnt})!");
+					if($nackCnt > 0){
+						ConsoleAPI::warn("Player '$username' sent too many NACK packets (allowed: {$nacks}, attempted {$ackCnt} or more)!");
+					}else{
+						ConsoleAPI::warn("Player '$username' sent too many ACK packets (allowed: {$acks}, attempted {$ackCnt} or more)!");
+					}
 					$c->close("too many ack packets");
 				}
 			}
@@ -94,6 +127,23 @@ class MinecraftInterface{
 			RakNetCodec::encode($packet);
 			if($packet->pid() >= RakNetInfo::DATA_PACKET_0 && $packet->pid() <= RakNetInfo::DATA_PACKET_F && $packet->incrementAllowedAck){
 				$id = "{$packet->ip}:{$packet->port}";
+				$seq = $this->maxRecordedSeq[$id] ?? false;
+				$nackIncr = 0;
+				if($seq === false){
+					$this->maxRecordedSeq[$id] = $packet->seqNumber;
+					$nackIncr = 1;
+				}elseif($packet->seqNumber > $seq){
+					$nackIncr = $packet->seqNumber - $seq;
+					$this->maxRecordedSeq[$id] = $packet->seqNumber;
+				}
+				if($nackIncr > 1000){
+					$nackIncr = 1000;
+				}
+				if(isset($this->maxNACKsAllowed[$id])){
+					$this->maxNACKsAllowed[$id] += $nackIncr;
+				}else{
+					$this->maxNACKsAllowed[$id] = $nackIncr;
+				}
 				if(isset($this->maxACKsAllowed[$id])){
 					if($this->maxACKsAllowed[$id] < 65536){
 						++$this->maxACKsAllowed[$id];
